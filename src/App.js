@@ -4,16 +4,20 @@ import "./App.css";
 import { Button, Flex, Form, Input, Typography } from "antd";
 
 function App() {
-  const [network] = useState(process.env.REACT_APP_API_NETWORK);
-  const [apiKey] = useState(process.env.REACT_APP_API_KEY);
-  const [privateKey] = useState(process.env.REACT_APP_PRIVATE_KEY);
-  const [symbol, setSymbol] = useState("");
-  const [balance, setBalance] = useState(0.0);
-  const [tokenContract] = useState(process.env.REACT_APP_TOKEN_CONTRACT);
-  const [recipientAddress] = useState(
+  const [network, setNetwork] = useState(process.env.REACT_APP_API_NETWORK);
+  const [apiKey, setApiKey] = useState(process.env.REACT_APP_API_KEY);
+  const [privateKey, setPrivateKey] = useState(
+    process.env.REACT_APP_PRIVATE_KEY
+  );
+  const [tokenContract, setTokenContract] = useState(
+    process.env.REACT_APP_TOKEN_CONTRACT
+  );
+  const [recipientAddress, setRecipientAddress] = useState(
     "0xcAa4b64Defcd241BB46dCC97C4Ffd71E82100c89"
   );
-  const [amount] = useState("100");
+  const [amount, setAmount] = useState("100");
+  const [symbol, setSymbol] = useState("");
+  const [balance, setBalance] = useState(0.0);
   const [balanceWalletLoading, setBalanceWalletLoading] = useState(false);
   const [balanceInfuralLoading, setBalanceInfuralLoading] = useState(false);
   const [transferWalletLoading, setTransferWalletLoading] = useState(false);
@@ -291,22 +295,31 @@ function App() {
       >
         <Typography.Title>DApp Demo</Typography.Title>
         <Form.Item label="Network">
-          <Input value={network} />
+          <Input value={network} onChange={(e) => setNetwork(e.target.value)} />
         </Form.Item>
         <Form.Item label="API Key">
-          <Input value={apiKey} />
+          <Input value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
         </Form.Item>
         <Form.Item label="Priavte Key">
-          <Input value={privateKey} />
+          <Input
+            value={privateKey}
+            onChange={(e) => setPrivateKey(e.target.value)}
+          />
         </Form.Item>
         <Form.Item label="Token Contract" required>
-          <Input value={tokenContract} />
+          <Input
+            value={tokenContract}
+            onChange={(e) => setTokenContract(e.target.value)}
+          />
         </Form.Item>
         <Form.Item label="Recipient Address" required>
-          <Input value={recipientAddress} />
+          <Input
+            value={recipientAddress}
+            onChange={(e) => setRecipientAddress(e.target.value)}
+          />
         </Form.Item>
         <Form.Item label="Recipient Address" required>
-          <Input value={amount} />
+          <Input value={amount} onChange={(e) => setAmount(e.target.value)} />
         </Form.Item>
         <Form.Item label="Balance">
           <Typography.Text>

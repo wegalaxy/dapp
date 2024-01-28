@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ethers } from "ethers";
 import "./App.css";
-import { Button, Flex, Form, Input, Typography } from "antd";
+import { Button, Flex, Form, Input, notification, Typography } from "antd";
 
 function App() {
   const [network, setNetwork] = useState(process.env.REACT_APP_API_NETWORK);
@@ -22,6 +22,8 @@ function App() {
   const [balanceInfuralLoading, setBalanceInfuralLoading] = useState(false);
   const [transferWalletLoading, setTransferWalletLoading] = useState(false);
   const [transferInfuralLoading, setTransferInfuraLoading] = useState(false);
+
+  const [api, contextHolder] = notification.useNotification();
 
   const abi = [
     {
@@ -204,7 +206,8 @@ function App() {
       setBalanceWalletLoading(true);
       getBalance(tokenContract);
     } catch (error) {
-      console.log(error);
+      console.error(error);
+      openNotification(error.code, error.action);
     } finally {
       setBalanceWalletLoading(false);
     }
@@ -217,7 +220,8 @@ function App() {
       const signer = new ethers.Wallet(privateKey, provider);
       getBalance(tokenContract, signer);
     } catch (error) {
-      console.log(error);
+      console.error(error);
+      openNotification(error.code, error.action);
     } finally {
       setBalanceInfuralLoading(false);
     }
@@ -228,7 +232,9 @@ function App() {
       setTransferWalletLoading(true);
       await sendTransaction(tokenContract, recipientAddress, amount);
     } catch (error) {
-      console.log(error);
+      console.error(error);
+      alert(JSON.stringify(error));
+      openNotification(error.code, error.action);
     } finally {
       setTransferWalletLoading(false);
     }
@@ -241,7 +247,8 @@ function App() {
       const signer = new ethers.Wallet(privateKey, provider);
       await sendTransaction(tokenContract, recipientAddress, amount, signer);
     } catch (error) {
-      console.log(error);
+      console.error(error);
+      openNotification(error.code, error.action);
     } finally {
       setTransferInfuraLoading(false);
     }
@@ -285,75 +292,96 @@ function App() {
     setBalance(ethers.formatUnits(balance));
   };
 
+  const openNotification = (code, action) => {
+    api.info({
+      message: code,
+      description: action,
+      placement: "top",
+    });
+  };
+
   // Configure the app frontend
   return (
-    <Flex className="App" justify="center">
-      <Form
-        labelCol={{ span: 8 }}
-        wrapperCol={{ span: 16 }}
-        style={{ maxWidth: 600 }}
-      >
-        <Typography.Title>DApp Demo</Typography.Title>
-        <Form.Item label="Network">
-          <Input value={network} onChange={(e) => setNetwork(e.target.value)} />
-        </Form.Item>
-        <Form.Item label="API Key">
-          <Input value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
-        </Form.Item>
-        <Form.Item label="Priavte Key">
-          <Input
-            value={privateKey}
-            onChange={(e) => setPrivateKey(e.target.value)}
-          />
-        </Form.Item>
-        <Form.Item label="Token Contract" required>
-          <Input
-            value={tokenContract}
-            onChange={(e) => setTokenContract(e.target.value)}
-          />
-        </Form.Item>
-        <Form.Item label="Recipient Address" required>
-          <Input
-            value={recipientAddress}
-            onChange={(e) => setRecipientAddress(e.target.value)}
-          />
-        </Form.Item>
-        <Form.Item label="Recipient Address" required>
-          <Input value={amount} onChange={(e) => setAmount(e.target.value)} />
-        </Form.Item>
-        <Form.Item label="Balance">
-          <Typography.Text>
-            {balance} {symbol}
-          </Typography.Text>
-        </Form.Item>
-        <Flex gap={16} justify="center" wrap="wrap">
-          {window.ethereum && (
-            <Button
-              type="primary"
-              onClick={getBalanceViaWallet}
-              loading={balanceWalletLoading}
-            >
-              Get Balance via Wallet
-            </Button>
-          )}
-          <Button onClick={getBalanceViaInfura} loading={balanceInfuralLoading}>
-            Get Balance via Infural
-          </Button>
-          {window.ethereum && (
-            <Button
-              type="primary"
-              onClick={sendViaWallet}
-              loading={transferWalletLoading}
-            >
-              Send via Wallet
-            </Button>
-          )}
-          <Button onClick={sendViaInfura} loading={transferInfuralLoading}>
-            Send via Infura
-          </Button>
-        </Flex>
-      </Form>
-    </Flex>
+    <>
+      {contextHolder}
+      <Flex className="App" justify="center">
+        <Form
+          labelCol={{ span: 8 }}
+          wrapperCol={{ span: 16 }}
+          style={{ maxWidth: 600 }}
+        >
+          <Typography.Title>DApp Demo</Typography.Title>
+          <Form.Item label="Network">
+            <Input
+              value={network}
+              onChange={(e) => setNetwork(e.target.value)}
+            />
+          </Form.Item>
+          <Form.Item label="API Key">
+            <Input value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
+          </Form.Item>
+          <Form.Item label="Priavte Key">
+            <Input
+              value={privateKey}
+              onChange={(e) => setPrivateKey(e.target.value)}
+            />
+          </Form.Item>
+          <Form.Item label="Token Contract" required>
+            <Input
+              value={tokenContract}
+              onChange={(e) => setTokenContract(e.target.value)}
+            />
+          </Form.Item>
+          <Form.Item label="Recipient Address" required>
+            <Input
+              value={recipientAddress}
+              onChange={(e) => setRecipientAddress(e.target.value)}
+            />
+          </Form.Item>
+          <Form.Item label="Recipient Address" required>
+            <Input value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </Form.Item>
+          <Form.Item label="Balance">
+            <Typography.Text>
+              {balance} {symbol}
+            </Typography.Text>
+          </Form.Item>
+          <Flex gap={16} justify="center" wrap="wrap">
+            <Flex gap={16} justify="center" wrap="wrap">
+              {window.ethereum && (
+                <Button
+                  type="primary"
+                  onClick={getBalanceViaWallet}
+                  loading={balanceWalletLoading}
+                >
+                  Get Balance via Wallet
+                </Button>
+              )}
+              <Button
+                onClick={getBalanceViaInfura}
+                loading={balanceInfuralLoading}
+              >
+                Get Balance via Infural
+              </Button>
+            </Flex>
+            <Flex gap={16} justify="center" wrap="wrap">
+              {window.ethereum && (
+                <Button
+                  type="primary"
+                  onClick={sendViaWallet}
+                  loading={transferWalletLoading}
+                >
+                  Send via Wallet
+                </Button>
+              )}
+              <Button onClick={sendViaInfura} loading={transferInfuralLoading}>
+                Send via Infura
+              </Button>
+            </Flex>
+          </Flex>
+        </Form>
+      </Flex>
+    </>
   );
 }
 

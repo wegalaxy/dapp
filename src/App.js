@@ -161,7 +161,7 @@ function App() {
   const approveViaWallet = async () => {
     try {
       setApproveWalletLoading(true);
-      await approve(tokenContract, gameContract, number);
+      await approve(tokenContract, gameContract, amount);
     } catch (error) {
       console.error(error);
       openNotification(error.code, error.action);
@@ -173,7 +173,7 @@ function App() {
   const approveViaInfura = async () => {
     try {
       setApproveInfuraLoading(true);
-      await approve(tokenContract, gameContract, number, signer);
+      await approve(tokenContract, gameContract, amount, signer);
     } catch (error) {
       console.error(error);
       openNotification(error.code, error.action);
@@ -328,7 +328,7 @@ function App() {
   };
 
   // Approve using either the Web3Provider or InfuraProvider
-  const approve = async (tokenContract, gameContract, number, signer) => {
+  const approve = async (tokenContract, gameContract, amount, signer) => {
     if (signer == null) {
       // Web3 Provider
       if (!window.ethereum) console.error("No wallet found!");
@@ -339,7 +339,7 @@ function App() {
       }
     }
     const contract = new ethers.Contract(tokenContract, TOKEN_ABI, signer);
-    const tx = await contract.approve(gameContract, ethers.parseUnits(number));
+    const tx = await contract.approve(gameContract, ethers.parseUnits(amount));
     console.log(await tx.wait());
   };
 
@@ -472,7 +472,7 @@ function App() {
                   onChange={(e) => setRecipientAddress(e.target.value)}
                 />
               </Form.Item>
-              <Form.Item label="Recipient Address" required>
+              <Form.Item label="Amount" required>
                 <Input
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -622,12 +622,12 @@ function App() {
                   value={endUnixTime}
                   onChange={(date) => setEndUnixTime(date)}
                   disabledDate={(current) => {
-                    return current && current < startUnixTime.endOf("day");
+                    return current && current <= startUnixTime;
                   }}
                   showTime
                 />
               </Form.Item>
-              <Form.Item label="Recipient Address" required>
+              <Form.Item label="Fund Per Guessing" required>
                 <InputNumber
                   value={fundPerGuessing}
                   onChange={(value) => setFundPerGuessing(value)}

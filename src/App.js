@@ -17,6 +17,7 @@ import { GAME_ABI, TOKEN_ABI } from "./Constants";
 function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [currentGameId, setCurrentGameId] = useState();
 
   const [network, setNetwork] = useState(process.env.REACT_APP_API_NETWORK);
   const [apiKey, setApiKey] = useState(process.env.REACT_APP_API_KEY);
@@ -128,6 +129,7 @@ function App() {
         fundPerGuessing,
         rewardPercentage
       );
+      await getCurrentGameId(gameContract);
     } catch (error) {
       console.error(error);
       openNotification(error.code, error.action);
@@ -150,6 +152,7 @@ function App() {
         rewardPercentage,
         signer
       );
+      await getCurrentGameId(gameContract, signer);
     } catch (error) {
       console.error(error);
       openNotification(error.code, error.action);
@@ -234,6 +237,7 @@ function App() {
     try {
       setConnectWalletLoading(true);
       await connect(gameContract);
+      await getCurrentGameId(gameContract);
     } catch (error) {
       console.error(error);
       openNotification(error.code, error.action);
@@ -246,6 +250,7 @@ function App() {
     try {
       setConnectInfuraLoading(true);
       await connect(gameContract, signer);
+      await getCurrentGameId(gameContract, signer);
     } catch (error) {
       console.error(error);
       openNotification(error.code, error.action);
@@ -376,25 +381,36 @@ function App() {
   };
 
   const connect = async (gameContract, signer = null) => {
-    try {
-      if (signer == null) {
-        // Web3 Provider
-        if (!window.ethereum) console.error("No wallet found!");
-        else {
-          await window.ethereum.send("eth_requestAccounts");
-          const provider = new ethers.BrowserProvider(window.ethereum);
-          signer = await provider.getSigner();
-        }
+    if (signer == null) {
+      // Web3 Provider
+      if (!window.ethereum) console.error("No wallet found!");
+      else {
+        await window.ethereum.send("eth_requestAccounts");
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
       }
-      const contract = new ethers.Contract(gameContract, GAME_ABI, signer);
-      const owner = await contract.owner();
-      const address = signer.address;
-      setIsOwner(owner === address);
-      setIsConnected(true);
-    } catch (error) {
-      console.error(error);
-      openNotification(error.code, error.action);
     }
+    const contract = new ethers.Contract(gameContract, GAME_ABI, signer);
+    const owner = await contract.owner();
+    const address = signer.address;
+    setIsOwner(owner === address);
+    setIsConnected(true);
+  };
+
+  const getCurrentGameId = async (gameContract, signer = null) => {
+    if (signer == null) {
+      // Web3 Provider
+      if (!window.ethereum) console.error("No wallet found!");
+      else {
+        await window.ethereum.send("eth_requestAccounts");
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
+      }
+    }
+    const contract = new ethers.Contract(gameContract, GAME_ABI, signer);
+    const currentGameId = await contract.currentGameId();
+    console.log(currentGameId);
+    setCurrentGameId(currentGameId.toString());
   };
 
   const openNotification = (code, action) => {
@@ -410,9 +426,9 @@ function App() {
     <>
       {contextHolder}
       <Flex className="App" gap={32} justify="center" align="center" vertical>
+        <Typography.Title>DApp Demo</Typography.Title>
         {window.ethereum && !isConnected && (
           <>
-            <Typography.Title>DApp Demo</Typography.Title>
             <Button
               type="primary"
               onClick={connectViaWallet}
@@ -429,13 +445,14 @@ function App() {
         )}
         {isConnected && (
           <>
+            <Typography.Text>Current Game ID: {currentGameId}</Typography.Text>
             <Form
               labelCol={{ span: 8 }}
               wrapperCol={{ span: 16 }}
               style={{ maxWidth: 600 }}
               hidden
             >
-              <Typography.Title>DApp Demo</Typography.Title>
+              <Typography.Title level={2}>Demo</Typography.Title>
               <Form.Item label="Network">
                 <Input
                   value={network}
@@ -594,7 +611,7 @@ function App() {
               style={{ maxWidth: 600 }}
               hidden={!isOwner}
             >
-              <Typography.Title>Game Demo</Typography.Title>
+              <Typography.Title level={2}>New Game</Typography.Title>
               <Form.Item label="Target Number">
                 <InputNumber
                   value={targetNumber}
@@ -665,7 +682,7 @@ function App() {
               style={{ maxWidth: 600 }}
               hidden={!isOwner}
             >
-              <Typography.Title>Game Demo</Typography.Title>
+              <Typography.Title level={2}>Reveal Game</Typography.Title>
               <Form.Item label="Game ID">
                 <Input
                   value={gameId}
@@ -709,7 +726,7 @@ function App() {
               wrapperCol={{ span: 16 }}
               style={{ maxWidth: 600 }}
             >
-              <Typography.Title>Game Demo</Typography.Title>
+              <Typography.Title level={2}>Guess Number</Typography.Title>
               <Form.Item label="Game ID">
                 <Input
                   value={gameId}

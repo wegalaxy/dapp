@@ -319,8 +319,8 @@ function App() {
     const tx = await contract.newGame(
       name,
       hash,
-      startUnixTime,
-      endUnixTime,
+      startUnixTime.unix(),
+      endUnixTime.unix(),
       ethers.parseUnits(fundPerGuessing),
       rewardPercentage
     );

@@ -360,7 +360,7 @@ function App() {
       }
     }
     const contract = new ethers.Contract(gameContract, GAME_ABI, signer);
-    const tx = await contract.guess(gameId, number.toString());
+    const tx = await contract.guess(gameId, number);
     console.log(await tx.wait());
   };
 

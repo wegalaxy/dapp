@@ -2,13 +2,18 @@ import React, { useState } from "react";
 import { ethers } from "ethers";
 import "./App.css";
 import {
+  Avatar,
   Button,
+  Card,
   DatePicker,
+  Descriptions,
   Flex,
   Form,
   Input,
   InputNumber,
+  List,
   notification,
+  Tag,
   Typography,
 } from "antd";
 import dayjs from "dayjs";
@@ -17,7 +22,11 @@ import { GAME_ABI, TOKEN_ABI } from "./Constants";
 function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
-  const [currentGameId, setCurrentGameId] = useState();
+  const [address, setAddress] = useState();
+  const [game, setGame] = useState();
+  const [gameWinNumbers, setGameWinNumbers] = useState();
+  const [players, setPlayers] = useState();
+  const [tokenSymbol, setTokenSymbol] = useState();
 
   const [network, setNetwork] = useState(process.env.REACT_APP_API_NETWORK);
   const [apiKey, setApiKey] = useState(process.env.REACT_APP_API_KEY);
@@ -129,7 +138,7 @@ function App() {
         fundPerGuessing,
         rewardPercentage
       );
-      await getCurrentGameId(gameContract);
+      await getCurrentGame(gameContract);
     } catch (error) {
       console.error(error);
       openNotification(error.code, error.action);
@@ -152,7 +161,7 @@ function App() {
         rewardPercentage,
         signer
       );
-      await getCurrentGameId(gameContract, signer);
+      await getCurrentGame(gameContract, signer);
     } catch (error) {
       console.error(error);
       openNotification(error.code, error.action);
@@ -237,7 +246,8 @@ function App() {
     try {
       setConnectWalletLoading(true);
       await connect(gameContract);
-      await getCurrentGameId(gameContract);
+      await getCurrentGame(gameContract);
+      await getFundToken(gameContract);
     } catch (error) {
       console.error(error);
       openNotification(error.code, error.action);
@@ -250,7 +260,8 @@ function App() {
     try {
       setConnectInfuraLoading(true);
       await connect(gameContract, signer);
-      await getCurrentGameId(gameContract, signer);
+      await getCurrentGame(gameContract, signer);
+      await getFundToken(gameContract, signer);
     } catch (error) {
       console.error(error);
       openNotification(error.code, error.action);
@@ -393,11 +404,12 @@ function App() {
     const contract = new ethers.Contract(gameContract, GAME_ABI, signer);
     const owner = await contract.owner();
     const address = signer.address;
+    setAddress(address);
     setIsOwner(owner === address);
     setIsConnected(true);
   };
 
-  const getCurrentGameId = async (gameContract, signer = null) => {
+  const getCurrentGame = async (gameContract, signer = null) => {
     if (signer == null) {
       // Web3 Provider
       if (!window.ethereum) console.error("No wallet found!");
@@ -409,8 +421,45 @@ function App() {
     }
     const contract = new ethers.Contract(gameContract, GAME_ABI, signer);
     const currentGameId = await contract.currentGameId();
-    console.log(currentGameId);
-    setCurrentGameId(currentGameId.toString());
+    const game = await contract.games(currentGameId);
+    const gameWinNumbers = await contract.getGameWinNumbers(currentGameId);
+    const playerAddresses = await contract.getGamePlayers(currentGameId);
+    const players = [];
+    for (let i = 0; i < playerAddresses.length; i++) {
+      let playerAddress = playerAddresses[i];
+      let guessNumber = await contract.getGamePlayerGuess(
+        currentGameId,
+        playerAddress
+      );
+      players.push({
+        address: playerAddress,
+        number: Number(guessNumber),
+      });
+    }
+    setGameId(currentGameId);
+    setGame(game);
+    setGameWinNumbers(gameWinNumbers);
+    setPlayers(players);
+  };
+
+  const getFundToken = async (gameContract, signer = null) => {
+    if (signer == null) {
+      // Web3 Provider
+      if (!window.ethereum) console.error("No wallet found!");
+      else {
+        await window.ethereum.send("eth_requestAccounts");
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
+      }
+    }
+    const contract = new ethers.Contract(gameContract, GAME_ABI, signer);
+    const fundTokenContract = await contract.fundTokenContract();
+    const tokenContract = new ethers.Contract(
+      fundTokenContract,
+      TOKEN_ABI,
+      signer
+    );
+    setTokenSymbol(await tokenContract.symbol());
   };
 
   const openNotification = (code, action) => {
@@ -425,7 +474,7 @@ function App() {
   return (
     <>
       {contextHolder}
-      <Flex className="App" gap={32} justify="center" align="center" vertical>
+      <Flex className="App" gap={32} vertical>
         <Typography.Title>DApp Demo</Typography.Title>
         {window.ethereum && !isConnected && (
           <>
@@ -438,344 +487,454 @@ function App() {
             </Button>
           </>
         )}
+
         {!isConnected && (
           <Button onClick={connectViaInfura} loading={connectInfuralLoading}>
             Connect Via Infura
           </Button>
         )}
+
         {isConnected && (
           <>
-            <Typography.Text>Current Game ID: {currentGameId}</Typography.Text>
-            <Form
-              labelCol={{ span: 8 }}
-              wrapperCol={{ span: 16 }}
-              style={{ maxWidth: 600 }}
-              hidden
-            >
-              <Typography.Title level={2}>Demo</Typography.Title>
-              <Form.Item label="Network">
-                <Input
-                  value={network}
-                  onChange={(e) => setNetwork(e.target.value)}
-                />
-              </Form.Item>
-              <Form.Item label="API Key">
-                <Input
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                />
-              </Form.Item>
-              <Form.Item label="Priavte Key">
-                <Input
-                  value={privateKey}
-                  onChange={(e) => setPrivateKey(e.target.value)}
-                />
-              </Form.Item>
-              <Form.Item label="Token Contract" required>
-                <Input
-                  value={tokenContract}
-                  onChange={(e) => setTokenContract(e.target.value)}
-                />
-              </Form.Item>
-              <Form.Item label="Game Contract" required>
-                <Input
-                  value={gameContract}
-                  onChange={(e) => setGameContract(e.target.value)}
-                />
-              </Form.Item>
-              <Form.Item label="Recipient Address" required>
-                <Input
-                  value={recipientAddress}
-                  onChange={(e) => setRecipientAddress(e.target.value)}
-                />
-              </Form.Item>
-              <Form.Item label="Amount" required>
-                <Input
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-              </Form.Item>
-              <Form.Item label="Balance">
-                <Typography.Text>
-                  {balance} {symbol}
-                </Typography.Text>
-              </Form.Item>
-              <Flex gap={16} justify="center" wrap="wrap">
-                <Flex gap={16} justify="center" wrap="wrap">
-                  {window.ethereum && (
-                    <Button
-                      type="primary"
-                      onClick={getBalanceViaWallet}
-                      loading={balanceWalletLoading}
-                    >
-                      Get Balance via Wallet
-                    </Button>
-                  )}
-                  <Button
-                    onClick={getBalanceViaInfura}
-                    loading={balanceInfuralLoading}
-                  >
-                    Get Balance via Infural
-                  </Button>
+            {game && gameWinNumbers && (
+              <Descriptions
+                title="Game Info"
+                items={[
+                  {
+                    key: "id",
+                    label: "ID",
+                    children: Number(game.id),
+                  },
+                  {
+                    key: "name",
+                    label: "Name",
+                    children: game.name,
+                  },
+                  {
+                    key: "targetNumber",
+                    label: "Target Number",
+                    children: Number(game.targetNumber),
+                  },
+                  {
+                    key: "startUnixTime",
+                    label: "Start Datetime",
+                    children: dayjs
+                      .unix(Number(game.startUnixTime))
+                      .format("YYYY-MM-DD HH:mm:ss"),
+                  },
+                  {
+                    key: "endtUnixTime",
+                    label: "End Datetime",
+                    children: dayjs
+                      .unix(Number(game.endUnixTime))
+                      .format("YYYY-MM-DD HH:mm:ss"),
+                  },
+                  {
+                    key: "fundPerGuessing",
+                    label: "Fund Per Guessing",
+                    children: `${ethers.formatUnits(
+                      game.fundPerGuessing
+                    )} ${tokenSymbol}`,
+                  },
+                  {
+                    key: "totalFund",
+                    label: "Total Fund",
+                    children: `${ethers.formatUnits(
+                      game.totalFund
+                    )} ${tokenSymbol}`,
+                  },
+                  {
+                    key: "revealed",
+                    label: "Revealed",
+                    children: game.revealed ? "Yes" : "No",
+                  },
+                  {
+                    key: "rewardPercentage",
+                    label: "Reward Percentage",
+                    children: `${Number(game.rewardPercentage)}%`,
+                  },
+                  {
+                    key: "gameWinNumbers",
+                    label: "Win Numbers",
+                    children: `${[gameWinNumbers].join(",")}`,
+                  },
+                ]}
+                bordered
+              />
+            )}
+
+            {players && (
+              <Card title="Game Players">
+                <Flex gap={16} vertical>
+                  <List
+                    itemLayout="horizontal"
+                    dataSource={players}
+                    renderItem={(player, index) => (
+                      <List.Item key={index}>
+                        <List.Item.Meta
+                          avatar={
+                            <Avatar>{player.address.substring(2, 4)}</Avatar>
+                          }
+                          title={
+                            <Typography.Text wrap>
+                              {player.address}
+                              {player.address === address && (
+                                <Tag color="magenta" style={{ marginLeft: 8 }}>
+                                  Me
+                                </Tag>
+                              )}
+                            </Typography.Text>
+                          }
+                          description={
+                            <Typography.Text>
+                              Guess Number: {player.number}
+                            </Typography.Text>
+                          }
+                        />
+                      </List.Item>
+                    )}
+                  />
                 </Flex>
+              </Card>
+            )}
+
+            <Card title="Demo" hidden>
+              <Form
+                labelCol={{ span: 10 }}
+                wrapperCol={{ span: 14 }}
+                style={{ maxWidth: 600 }}
+              >
+                <Form.Item label="Network">
+                  <Input
+                    value={network}
+                    onChange={(e) => setNetwork(e.target.value)}
+                  />
+                </Form.Item>
+                <Form.Item label="API Key">
+                  <Input
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                  />
+                </Form.Item>
+                <Form.Item label="Priavte Key">
+                  <Input
+                    value={privateKey}
+                    onChange={(e) => setPrivateKey(e.target.value)}
+                  />
+                </Form.Item>
+                <Form.Item label="Token Contract" required>
+                  <Input
+                    value={tokenContract}
+                    onChange={(e) => setTokenContract(e.target.value)}
+                  />
+                </Form.Item>
+                <Form.Item label="Game Contract" required>
+                  <Input
+                    value={gameContract}
+                    onChange={(e) => setGameContract(e.target.value)}
+                  />
+                </Form.Item>
+                <Form.Item label="Recipient Address" required>
+                  <Input
+                    value={recipientAddress}
+                    onChange={(e) => setRecipientAddress(e.target.value)}
+                  />
+                </Form.Item>
+                <Form.Item label="Amount" required>
+                  <Input
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                </Form.Item>
+                <Form.Item label="Balance">
+                  <Typography.Text>
+                    {balance} {symbol}
+                  </Typography.Text>
+                </Form.Item>
                 <Flex gap={16} justify="center" wrap="wrap">
-                  {window.ethereum && (
+                  <Flex gap={16} justify="center" wrap="wrap">
+                    {window.ethereum && (
+                      <Button
+                        type="primary"
+                        onClick={getBalanceViaWallet}
+                        loading={balanceWalletLoading}
+                      >
+                        Get Balance via Wallet
+                      </Button>
+                    )}
                     <Button
-                      type="primary"
-                      onClick={sendViaWallet}
-                      loading={transferWalletLoading}
+                      onClick={getBalanceViaInfura}
+                      loading={balanceInfuralLoading}
                     >
-                      Send via Wallet
+                      Get Balance via Infural
                     </Button>
-                  )}
-                  <Button
-                    onClick={sendViaInfura}
-                    loading={transferInfuralLoading}
-                  >
-                    Send via Infura
-                  </Button>
+                  </Flex>
+                  <Flex gap={16} justify="center" wrap="wrap">
+                    {window.ethereum && (
+                      <Button
+                        type="primary"
+                        onClick={sendViaWallet}
+                        loading={transferWalletLoading}
+                      >
+                        Send via Wallet
+                      </Button>
+                    )}
+                    <Button
+                      onClick={sendViaInfura}
+                      loading={transferInfuralLoading}
+                    >
+                      Send via Infura
+                    </Button>
+                  </Flex>
+                  <Flex gap={16} justify="center" wrap="wrap">
+                    {window.ethereum && (
+                      <Button
+                        type="primary"
+                        onClick={newGameViaWallet}
+                        loading={newGameWalletLoading}
+                      >
+                        New Game Via Wallet
+                      </Button>
+                    )}
+                    <Button
+                      onClick={newGameViaInfura}
+                      loading={newGameInfuralLoading}
+                    >
+                      New Game via Infura
+                    </Button>
+                  </Flex>
+                  <Flex gap={16} justify="center" wrap="wrap">
+                    {window.ethereum && (
+                      <Button
+                        type="primary"
+                        onClick={approveViaWallet}
+                        loading={approveWalletLoading}
+                      >
+                        Approve Via Wallet
+                      </Button>
+                    )}
+                    <Button
+                      onClick={approveViaInfura}
+                      loading={approveInfuralLoading}
+                    >
+                      Approve via Infura
+                    </Button>
+                  </Flex>
+                  <Flex gap={16} justify="center" wrap="wrap">
+                    {window.ethereum && (
+                      <Button
+                        type="primary"
+                        onClick={guessViaWallet}
+                        loading={guessWalletLoading}
+                      >
+                        Guess Via Wallet
+                      </Button>
+                    )}
+                    <Button
+                      onClick={guessViaInfura}
+                      loading={guessInfuralLoading}
+                    >
+                      Guess via Infura
+                    </Button>
+                  </Flex>
+                  <Flex gap={16} justify="center" wrap="wrap">
+                    {window.ethereum && (
+                      <Button
+                        type="primary"
+                        onClick={revealViaWallet}
+                        loading={revealWalletLoading}
+                      >
+                        Reveal Via Wallet
+                      </Button>
+                    )}
+                    <Button
+                      onClick={revealViaInfura}
+                      loading={revealInfuralLoading}
+                    >
+                      Reveal via Infura
+                    </Button>
+                  </Flex>
                 </Flex>
+              </Form>
+            </Card>
+
+            <Card title="New Game" hidden={!isOwner}>
+              <Form
+                labelCol={{ span: 10 }}
+                wrapperCol={{ span: 14 }}
+                style={{ maxWidth: 600 }}
+              >
+                <Form.Item label="Target Number">
+                  <InputNumber
+                    value={targetNumber}
+                    onChange={(value) => setTargetNumber(value)}
+                  />
+                </Form.Item>
+                <Form.Item label="Greeting">
+                  <Input
+                    value={greeting}
+                    onChange={(e) => setGreeting(e.target.value)}
+                  />
+                </Form.Item>
+                <Form.Item label="Name">
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </Form.Item>
+                <Form.Item label="Start Datetime" required>
+                  <DatePicker
+                    value={startUnixTime}
+                    onChange={(date) => setStartUnixTime(date)}
+                    showTime
+                  />
+                </Form.Item>
+                <Form.Item label="End Datetime" required>
+                  <DatePicker
+                    value={endUnixTime}
+                    onChange={(date) => setEndUnixTime(date)}
+                    disabledDate={(current) => {
+                      return current && current <= startUnixTime;
+                    }}
+                    showTime
+                  />
+                </Form.Item>
+                <Form.Item label="Fund Per Guessing" required>
+                  <InputNumber
+                    value={fundPerGuessing}
+                    onChange={(value) => setFundPerGuessing(value)}
+                  />
+                </Form.Item>
+                <Form.Item label="Reward Percentage" required>
+                  <InputNumber
+                    value={rewardPercentage}
+                    onChange={(value) => setRewardPercentage(value)}
+                  />
+                </Form.Item>
                 <Flex gap={16} justify="center" wrap="wrap">
-                  {window.ethereum && (
+                  <Flex gap={16} justify="center" wrap="wrap">
+                    {window.ethereum && (
+                      <Button
+                        type="primary"
+                        onClick={newGameViaWallet}
+                        loading={newGameWalletLoading}
+                      >
+                        New Game Via Wallet
+                      </Button>
+                    )}
                     <Button
-                      type="primary"
-                      onClick={newGameViaWallet}
-                      loading={newGameWalletLoading}
+                      onClick={newGameViaInfura}
+                      loading={newGameInfuralLoading}
                     >
-                      New Game Via Wallet
+                      New Game via Infura
                     </Button>
-                  )}
-                  <Button
-                    onClick={newGameViaInfura}
-                    loading={newGameInfuralLoading}
-                  >
-                    New Game via Infura
-                  </Button>
+                  </Flex>
                 </Flex>
+              </Form>
+            </Card>
+
+            <Card title="Reveal Game" hidden={!isOwner}>
+              <Form
+                labelCol={{ span: 10 }}
+                wrapperCol={{ span: 14 }}
+                style={{ maxWidth: 600 }}
+              >
+                <Form.Item label="Game ID">
+                  <Input
+                    value={gameId}
+                    onChange={(e) => setGameId(e.target.value)}
+                  />
+                </Form.Item>
+                <Form.Item label="Greeting">
+                  <Input
+                    value={greeting}
+                    onChange={(e) => setGreeting(e.target.value)}
+                  />
+                </Form.Item>
+                <Form.Item label="Target Number">
+                  <InputNumber
+                    value={targetNumber}
+                    onChange={(value) => setTargetNumber(value)}
+                  />
+                </Form.Item>
                 <Flex gap={16} justify="center" wrap="wrap">
-                  {window.ethereum && (
+                  <Flex gap={16} justify="center" wrap="wrap">
+                    {window.ethereum && (
+                      <Button
+                        type="primary"
+                        onClick={revealViaWallet}
+                        loading={revealWalletLoading}
+                      >
+                        Reveal Via Wallet
+                      </Button>
+                    )}
                     <Button
-                      type="primary"
-                      onClick={approveViaWallet}
-                      loading={approveWalletLoading}
+                      onClick={revealViaInfura}
+                      loading={revealInfuralLoading}
                     >
-                      Approve Via Wallet
+                      Reveal via Infura
                     </Button>
-                  )}
-                  <Button
-                    onClick={approveViaInfura}
-                    loading={approveInfuralLoading}
-                  >
-                    Approve via Infura
-                  </Button>
+                  </Flex>
                 </Flex>
+              </Form>
+            </Card>
+
+            <Card title="Guess Number">
+              <Form
+                labelCol={{ span: 10 }}
+                wrapperCol={{ span: 14 }}
+                style={{ maxWidth: 600 }}
+              >
+                <Form.Item label="Game ID">
+                  <Input
+                    value={gameId}
+                    onChange={(e) => setGameId(e.target.value)}
+                  />
+                </Form.Item>
+                <Form.Item label="Number">
+                  <InputNumber
+                    value={number}
+                    onChange={(value) => setNumber(value)}
+                  />
+                </Form.Item>
                 <Flex gap={16} justify="center" wrap="wrap">
-                  {window.ethereum && (
+                  <Flex gap={16} justify="center" wrap="wrap">
+                    {window.ethereum && (
+                      <Button
+                        type="primary"
+                        onClick={approveViaWallet}
+                        loading={approveWalletLoading}
+                      >
+                        Approve Via Wallet
+                      </Button>
+                    )}
                     <Button
-                      type="primary"
-                      onClick={guessViaWallet}
-                      loading={guessWalletLoading}
+                      onClick={approveViaInfura}
+                      loading={approveInfuralLoading}
                     >
-                      Guess Via Wallet
+                      Approve via Infura
                     </Button>
-                  )}
-                  <Button
-                    onClick={guessViaInfura}
-                    loading={guessInfuralLoading}
-                  >
-                    Guess via Infura
-                  </Button>
-                </Flex>
-                <Flex gap={16} justify="center" wrap="wrap">
-                  {window.ethereum && (
+                  </Flex>
+                  <Flex gap={16} justify="center" wrap="wrap">
+                    {window.ethereum && (
+                      <Button
+                        type="primary"
+                        onClick={guessViaWallet}
+                        loading={guessWalletLoading}
+                      >
+                        Guess Via Wallet
+                      </Button>
+                    )}
                     <Button
-                      type="primary"
-                      onClick={revealViaWallet}
-                      loading={revealWalletLoading}
+                      onClick={guessViaInfura}
+                      loading={guessInfuralLoading}
                     >
-                      Reveal Via Wallet
+                      Guess via Infura
                     </Button>
-                  )}
-                  <Button
-                    onClick={revealViaInfura}
-                    loading={revealInfuralLoading}
-                  >
-                    Reveal via Infura
-                  </Button>
+                  </Flex>
                 </Flex>
-              </Flex>
-            </Form>
-            <Form
-              labelCol={{ span: 8 }}
-              wrapperCol={{ span: 16 }}
-              style={{ maxWidth: 600 }}
-              hidden={!isOwner}
-            >
-              <Typography.Title level={2}>New Game</Typography.Title>
-              <Form.Item label="Target Number">
-                <InputNumber
-                  value={targetNumber}
-                  onChange={(value) => setTargetNumber(value)}
-                />
-              </Form.Item>
-              <Form.Item label="Greeting">
-                <Input
-                  value={greeting}
-                  onChange={(e) => setGreeting(e.target.value)}
-                />
-              </Form.Item>
-              <Form.Item label="Name">
-                <Input value={name} onChange={(e) => setName(e.target.value)} />
-              </Form.Item>
-              <Form.Item label="Start Datetime" required>
-                <DatePicker
-                  value={startUnixTime}
-                  onChange={(date) => setStartUnixTime(date)}
-                  showTime
-                />
-              </Form.Item>
-              <Form.Item label="End Datetime" required>
-                <DatePicker
-                  value={endUnixTime}
-                  onChange={(date) => setEndUnixTime(date)}
-                  disabledDate={(current) => {
-                    return current && current <= startUnixTime;
-                  }}
-                  showTime
-                />
-              </Form.Item>
-              <Form.Item label="Fund Per Guessing" required>
-                <InputNumber
-                  value={fundPerGuessing}
-                  onChange={(value) => setFundPerGuessing(value)}
-                />
-              </Form.Item>
-              <Form.Item label="Reward Percentage" required>
-                <InputNumber
-                  value={rewardPercentage}
-                  onChange={(value) => setRewardPercentage(value)}
-                />
-              </Form.Item>
-              <Flex gap={16} justify="center" wrap="wrap">
-                <Flex gap={16} justify="center" wrap="wrap">
-                  {window.ethereum && (
-                    <Button
-                      type="primary"
-                      onClick={newGameViaWallet}
-                      loading={newGameWalletLoading}
-                    >
-                      New Game Via Wallet
-                    </Button>
-                  )}
-                  <Button
-                    onClick={newGameViaInfura}
-                    loading={newGameInfuralLoading}
-                  >
-                    New Game via Infura
-                  </Button>
-                </Flex>
-              </Flex>
-            </Form>
-            <Form
-              labelCol={{ span: 8 }}
-              wrapperCol={{ span: 16 }}
-              style={{ maxWidth: 600 }}
-              hidden={!isOwner}
-            >
-              <Typography.Title level={2}>Reveal Game</Typography.Title>
-              <Form.Item label="Game ID">
-                <Input
-                  value={gameId}
-                  onChange={(e) => setGameId(e.target.value)}
-                />
-              </Form.Item>
-              <Form.Item label="Greeting">
-                <Input
-                  value={greeting}
-                  onChange={(e) => setGreeting(e.target.value)}
-                />
-              </Form.Item>
-              <Form.Item label="Target Number">
-                <InputNumber
-                  value={targetNumber}
-                  onChange={(value) => setTargetNumber(value)}
-                />
-              </Form.Item>
-              <Flex gap={16} justify="center" wrap="wrap">
-                <Flex gap={16} justify="center" wrap="wrap">
-                  {window.ethereum && (
-                    <Button
-                      type="primary"
-                      onClick={revealViaWallet}
-                      loading={revealWalletLoading}
-                    >
-                      Reveal Via Wallet
-                    </Button>
-                  )}
-                  <Button
-                    onClick={revealViaInfura}
-                    loading={revealInfuralLoading}
-                  >
-                    Reveal via Infura
-                  </Button>
-                </Flex>
-              </Flex>
-            </Form>
-            <Form
-              labelCol={{ span: 8 }}
-              wrapperCol={{ span: 16 }}
-              style={{ maxWidth: 600 }}
-            >
-              <Typography.Title level={2}>Guess Number</Typography.Title>
-              <Form.Item label="Game ID">
-                <Input
-                  value={gameId}
-                  onChange={(e) => setGameId(e.target.value)}
-                />
-              </Form.Item>
-              <Form.Item label="Number">
-                <InputNumber
-                  value={number}
-                  onChange={(value) => setNumber(value)}
-                />
-              </Form.Item>
-              <Flex gap={16} justify="center" wrap="wrap">
-                <Flex gap={16} justify="center" wrap="wrap">
-                  {window.ethereum && (
-                    <Button
-                      type="primary"
-                      onClick={approveViaWallet}
-                      loading={approveWalletLoading}
-                    >
-                      Approve Via Wallet
-                    </Button>
-                  )}
-                  <Button
-                    onClick={approveViaInfura}
-                    loading={approveInfuralLoading}
-                  >
-                    Approve via Infura
-                  </Button>
-                </Flex>
-                <Flex gap={16} justify="center" wrap="wrap">
-                  {window.ethereum && (
-                    <Button
-                      type="primary"
-                      onClick={guessViaWallet}
-                      loading={guessWalletLoading}
-                    >
-                      Guess Via Wallet
-                    </Button>
-                  )}
-                  <Button
-                    onClick={guessViaInfura}
-                    loading={guessInfuralLoading}
-                  >
-                    Guess via Infura
-                  </Button>
-                </Flex>
-              </Flex>
-            </Form>
+              </Form>
+            </Card>
           </>
         )}
       </Flex>

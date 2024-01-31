@@ -1,25 +1,38 @@
 import React, { useState } from "react";
 import { ethers } from "ethers";
 import "./App.css";
-import {
-  Avatar,
-  Button,
-  Card,
-  DatePicker,
-  Descriptions,
-  Flex,
-  Form,
-  Input,
-  InputNumber,
-  List,
-  notification,
-  Tag,
-  Typography,
-} from "antd";
+import { notification } from "antd";
 import dayjs from "dayjs";
 import { GAME_ABI, TOKEN_ABI } from "./Constants";
+import { LoadingButton } from "@mui/lab";
+import { DateTimePicker, LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import {
+  AppBar,
+  Avatar,
+  Box,
+  Card,
+  CardContent,
+  CardHeader,
+  Chip,
+  Container,
+  Divider,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  Popover,
+  Table,
+  TableBody,
+  TableCell,
+  TableRow,
+  TextField,
+  Toolbar,
+  Typography,
+} from "@mui/material";
 
 function App() {
+  const [anchorEl, setAnchorEl] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [address, setAddress] = useState();
@@ -28,22 +41,13 @@ function App() {
   const [players, setPlayers] = useState();
   const [tokenSymbol, setTokenSymbol] = useState();
 
-  const [network, setNetwork] = useState(process.env.REACT_APP_API_NETWORK);
-  const [apiKey, setApiKey] = useState(process.env.REACT_APP_API_KEY);
-  const [privateKey, setPrivateKey] = useState(
-    process.env.REACT_APP_PRIVATE_KEY
-  );
-  const [tokenContract, setTokenContract] = useState(
-    process.env.REACT_APP_TOKEN_CONTRACT
-  );
-  const [gameContract, setGameContract] = useState(
-    process.env.REACT_APP_GAME_CONTRACT
-  );
-  const [recipientAddress, setRecipientAddress] = useState(
-    "0xcAa4b64Defcd241BB46dCC97C4Ffd71E82100c89"
-  );
-  const [amount, setAmount] = useState("100");
-  const [symbol, setSymbol] = useState("");
+  const [network] = useState(process.env.REACT_APP_API_NETWORK);
+  const [apiKey] = useState(process.env.REACT_APP_API_KEY);
+  const [privateKey] = useState(process.env.REACT_APP_PRIVATE_KEY);
+  const [tokenContract] = useState(process.env.REACT_APP_TOKEN_CONTRACT);
+  const [gameContract] = useState(process.env.REACT_APP_GAME_CONTRACT);
+  const [amount] = useState("100");
+
   const [balance, setBalance] = useState(0.0);
 
   const [targetNumber, setTargetNumber] = useState(20);
@@ -57,10 +61,6 @@ function App() {
   const [gameId, setGameId] = useState(1001);
   const [number, setNumber] = useState(20);
 
-  const [balanceWalletLoading, setBalanceWalletLoading] = useState(false);
-  const [balanceInfuralLoading, setBalanceInfuralLoading] = useState(false);
-  const [transferWalletLoading, setTransferWalletLoading] = useState(false);
-  const [transferInfuralLoading, setTransferInfuraLoading] = useState(false);
   const [newGameWalletLoading, setNewGameWalletLoading] = useState(false);
   const [newGameInfuralLoading, setNewGameInfuraLoading] = useState(false);
   const [approveWalletLoading, setApproveWalletLoading] = useState(false);
@@ -76,54 +76,6 @@ function App() {
 
   const provider = new ethers.InfuraProvider(network, apiKey);
   const signer = new ethers.Wallet(privateKey, provider);
-
-  const getBalanceViaWallet = async () => {
-    try {
-      setBalanceWalletLoading(true);
-      getBalance(tokenContract);
-    } catch (error) {
-      console.error(error);
-      openNotification(error.action, error.reason);
-    } finally {
-      setBalanceWalletLoading(false);
-    }
-  };
-
-  const getBalanceViaInfura = async () => {
-    try {
-      setBalanceInfuralLoading(true);
-      getBalance(tokenContract, signer);
-    } catch (error) {
-      console.error(error);
-      openNotification(error.action, error.reason);
-    } finally {
-      setBalanceInfuralLoading(false);
-    }
-  };
-
-  const sendViaWallet = async () => {
-    try {
-      setTransferWalletLoading(true);
-      await sendTransaction(tokenContract, recipientAddress, amount);
-    } catch (error) {
-      console.error(error);
-      openNotification(error.action, error.reason);
-    } finally {
-      setTransferWalletLoading(false);
-    }
-  };
-
-  const sendViaInfura = async () => {
-    try {
-      setTransferInfuraLoading(true);
-      await sendTransaction(tokenContract, recipientAddress, amount, signer);
-    } catch (error) {
-      console.error(error);
-      openNotification(error.action, error.reason);
-    } finally {
-      setTransferInfuraLoading(false);
-    }
-  };
 
   const newGameViaWallet = async () => {
     try {
@@ -247,7 +199,7 @@ function App() {
       setConnectWalletLoading(true);
       await connect(gameContract);
       await getCurrentGame(gameContract);
-      await getFundToken(gameContract);
+      await getBalanceOfFundToken(gameContract);
     } catch (error) {
       console.error(error);
       openNotification(error.action, error.reason);
@@ -261,52 +213,13 @@ function App() {
       setConnectInfuraLoading(true);
       await connect(gameContract, signer);
       await getCurrentGame(gameContract, signer);
-      await getFundToken(gameContract, signer);
+      await getBalanceOfFundToken(gameContract, signer);
     } catch (error) {
       console.error(error);
       openNotification(error.action, error.reason);
     } finally {
       setConnectInfuraLoading(false);
     }
-  };
-
-  // Send the transaction using either the Web3Provider or InfuraProvider
-  const sendTransaction = async (
-    tokenContract,
-    address,
-    amount,
-    signer = null
-  ) => {
-    if (signer == null) {
-      // Web3 Provider
-      if (!window.ethereum) console.error("No wallet found!");
-      else {
-        await window.ethereum.send("eth_requestAccounts");
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        signer = await provider.getSigner();
-      }
-    }
-    const contract = new ethers.Contract(tokenContract, TOKEN_ABI, signer);
-    const tx = await contract.transfer(address, ethers.parseUnits(amount));
-    console.log(await tx.wait());
-  };
-
-  // Get balance using either the Web3Provider or InfuraProvider
-  const getBalance = async (tokenContract, signer = null) => {
-    if (signer == null) {
-      // Web3 Provider
-      if (!window.ethereum) console.error("No wallet found!");
-      else {
-        await window.ethereum.send("eth_requestAccounts");
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        signer = await provider.getSigner();
-      }
-    }
-    const contract = new ethers.Contract(tokenContract, TOKEN_ABI, signer);
-    const symbol = await contract.symbol();
-    const balance = await contract.balanceOf(signer.address);
-    setSymbol(symbol);
-    setBalance(ethers.formatUnits(balance));
   };
 
   // New game using either the Web3Provider or InfuraProvider
@@ -436,13 +349,13 @@ function App() {
         number: Number(guessNumber),
       });
     }
-    setGameId(currentGameId);
+    setGameId(Number(currentGameId));
     setGame(game);
     setGameWinNumbers(gameWinNumbers);
     setPlayers(players);
   };
 
-  const getFundToken = async (gameContract, signer = null) => {
+  const getBalanceOfFundToken = async (gameContract, signer = null) => {
     if (signer == null) {
       // Web3 Provider
       if (!window.ethereum) console.error("No wallet found!");
@@ -459,6 +372,9 @@ function App() {
       TOKEN_ABI,
       signer
     );
+    setBalance(
+      ethers.formatUnits(await tokenContract.balanceOf(signer.address))
+    );
     setTokenSymbol(await tokenContract.symbol());
   };
 
@@ -474,470 +390,480 @@ function App() {
   return (
     <>
       {contextHolder}
-      <Flex className="App" gap={32} vertical>
-        <Typography.Title>DApp Demo</Typography.Title>
-        {window.ethereum && !isConnected && (
-          <>
-            <Button
-              type="primary"
-              onClick={connectViaWallet}
-              loading={connectWalletLoading}
-            >
-              Connect Via Wallet
-            </Button>
-          </>
-        )}
-
-        {!isConnected && (
-          <Button onClick={connectViaInfura} loading={connectInfuralLoading}>
-            Connect Via Infura
-          </Button>
-        )}
-
-        {isConnected && (
-          <>
-            {game && gameWinNumbers && (
-              <Descriptions
-                title="Game Info"
-                items={[
-                  {
-                    key: "id",
-                    label: "ID",
-                    children: Number(game.id),
-                  },
-                  {
-                    key: "name",
-                    label: "Name",
-                    children: game.name,
-                  },
-                  {
-                    key: "targetNumber",
-                    label: "Target Number",
-                    children: Number(game.targetNumber),
-                  },
-                  {
-                    key: "startUnixTime",
-                    label: "Start Datetime",
-                    children: dayjs
-                      .unix(Number(game.startUnixTime))
-                      .format("YYYY-MM-DD HH:mm:ss"),
-                  },
-                  {
-                    key: "endtUnixTime",
-                    label: "End Datetime",
-                    children: dayjs
-                      .unix(Number(game.endUnixTime))
-                      .format("YYYY-MM-DD HH:mm:ss"),
-                  },
-                  {
-                    key: "fundPerGuessing",
-                    label: "Fund Per Guessing",
-                    children: `${ethers.formatUnits(
-                      game.fundPerGuessing
-                    )} ${tokenSymbol}`,
-                  },
-                  {
-                    key: "totalFund",
-                    label: "Total Fund",
-                    children: `${ethers.formatUnits(
-                      game.totalFund
-                    )} ${tokenSymbol}`,
-                  },
-                  {
-                    key: "revealed",
-                    label: "Revealed",
-                    children: game.revealed ? "Yes" : "No",
-                  },
-                  {
-                    key: "rewardPercentage",
-                    label: "Reward Percentage",
-                    children: `${Number(game.rewardPercentage)}%`,
-                  },
-                  {
-                    key: "gameWinNumbers",
-                    label: "Win Numbers",
-                    children: `${[gameWinNumbers].join(",")}`,
-                  },
-                ]}
-                bordered
-              />
-            )}
-
-            {players && (
-              <Card title="Game Players">
-                <Flex gap={16} vertical>
-                  <List
-                    itemLayout="horizontal"
-                    dataSource={players}
-                    renderItem={(player, index) => (
-                      <List.Item key={index}>
-                        <List.Item.Meta
-                          avatar={
-                            <Avatar>{player.address.substring(2, 4)}</Avatar>
-                          }
-                          title={
-                            <Typography.Text>
-                              {player.address}
-                              {player.address === address && (
-                                <Tag color="magenta" style={{ marginLeft: 8 }}>
-                                  Me
-                                </Tag>
-                              )}
-                            </Typography.Text>
-                          }
-                          description={
-                            <Typography.Text>
-                              Guess Number: {player.number}
-                            </Typography.Text>
-                          }
-                        />
-                      </List.Item>
-                    )}
-                  />
-                </Flex>
-              </Card>
-            )}
-
-            <Card title="Demo" hidden>
-              <Form
-                labelCol={{ span: 10 }}
-                wrapperCol={{ span: 14 }}
-                style={{ maxWidth: 600 }}
-              >
-                <Form.Item label="Network">
-                  <Input
-                    value={network}
-                    onChange={(e) => setNetwork(e.target.value)}
-                  />
-                </Form.Item>
-                <Form.Item label="API Key">
-                  <Input
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                  />
-                </Form.Item>
-                <Form.Item label="Priavte Key">
-                  <Input
-                    value={privateKey}
-                    onChange={(e) => setPrivateKey(e.target.value)}
-                  />
-                </Form.Item>
-                <Form.Item label="Token Contract" required>
-                  <Input
-                    value={tokenContract}
-                    onChange={(e) => setTokenContract(e.target.value)}
-                  />
-                </Form.Item>
-                <Form.Item label="Game Contract" required>
-                  <Input
-                    value={gameContract}
-                    onChange={(e) => setGameContract(e.target.value)}
-                  />
-                </Form.Item>
-                <Form.Item label="Recipient Address" required>
-                  <Input
-                    value={recipientAddress}
-                    onChange={(e) => setRecipientAddress(e.target.value)}
-                  />
-                </Form.Item>
-                <Form.Item label="Amount" required>
-                  <Input
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                  />
-                </Form.Item>
-                <Form.Item label="Balance">
-                  <Typography.Text>
-                    {balance} {symbol}
-                  </Typography.Text>
-                </Form.Item>
-                <Flex gap={16} justify="center" wrap="wrap">
-                  <Flex gap={16} justify="center" wrap="wrap">
-                    {window.ethereum && (
-                      <Button
-                        type="primary"
-                        onClick={getBalanceViaWallet}
-                        loading={balanceWalletLoading}
-                      >
-                        Get Balance via Wallet
-                      </Button>
-                    )}
-                    <Button
-                      onClick={getBalanceViaInfura}
-                      loading={balanceInfuralLoading}
-                    >
-                      Get Balance via Infural
-                    </Button>
-                  </Flex>
-                  <Flex gap={16} justify="center" wrap="wrap">
-                    {window.ethereum && (
-                      <Button
-                        type="primary"
-                        onClick={sendViaWallet}
-                        loading={transferWalletLoading}
-                      >
-                        Send via Wallet
-                      </Button>
-                    )}
-                    <Button
-                      onClick={sendViaInfura}
-                      loading={transferInfuralLoading}
-                    >
-                      Send via Infura
-                    </Button>
-                  </Flex>
-                  <Flex gap={16} justify="center" wrap="wrap">
-                    {window.ethereum && (
-                      <Button
-                        type="primary"
-                        onClick={newGameViaWallet}
-                        loading={newGameWalletLoading}
-                      >
-                        New Game Via Wallet
-                      </Button>
-                    )}
-                    <Button
-                      onClick={newGameViaInfura}
-                      loading={newGameInfuralLoading}
-                    >
-                      New Game via Infura
-                    </Button>
-                  </Flex>
-                  <Flex gap={16} justify="center" wrap="wrap">
-                    {window.ethereum && (
-                      <Button
-                        type="primary"
-                        onClick={approveViaWallet}
-                        loading={approveWalletLoading}
-                      >
-                        Approve Via Wallet
-                      </Button>
-                    )}
-                    <Button
-                      onClick={approveViaInfura}
-                      loading={approveInfuralLoading}
-                    >
-                      Approve via Infura
-                    </Button>
-                  </Flex>
-                  <Flex gap={16} justify="center" wrap="wrap">
-                    {window.ethereum && (
-                      <Button
-                        type="primary"
-                        onClick={guessViaWallet}
-                        loading={guessWalletLoading}
-                      >
-                        Guess Via Wallet
-                      </Button>
-                    )}
-                    <Button
-                      onClick={guessViaInfura}
-                      loading={guessInfuralLoading}
-                    >
-                      Guess via Infura
-                    </Button>
-                  </Flex>
-                  <Flex gap={16} justify="center" wrap="wrap">
-                    {window.ethereum && (
-                      <Button
-                        type="primary"
-                        onClick={revealViaWallet}
-                        loading={revealWalletLoading}
-                      >
-                        Reveal Via Wallet
-                      </Button>
-                    )}
-                    <Button
-                      onClick={revealViaInfura}
-                      loading={revealInfuralLoading}
-                    >
-                      Reveal via Infura
-                    </Button>
-                  </Flex>
-                </Flex>
-              </Form>
-            </Card>
-
-            <Card title="New Game" hidden={!isOwner}>
-              <Form
-                labelCol={{ span: 10 }}
-                wrapperCol={{ span: 14 }}
-                style={{ maxWidth: 600 }}
-              >
-                <Form.Item label="Target Number">
-                  <InputNumber
-                    value={targetNumber}
-                    onChange={(value) => setTargetNumber(value)}
-                  />
-                </Form.Item>
-                <Form.Item label="Greeting">
-                  <Input
-                    value={greeting}
-                    onChange={(e) => setGreeting(e.target.value)}
-                  />
-                </Form.Item>
-                <Form.Item label="Name">
-                  <Input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                </Form.Item>
-                <Form.Item label="Start Datetime" required>
-                  <DatePicker
-                    value={startUnixTime}
-                    onChange={(date) => setStartUnixTime(date)}
-                    showTime
-                  />
-                </Form.Item>
-                <Form.Item label="End Datetime" required>
-                  <DatePicker
-                    value={endUnixTime}
-                    onChange={(date) => setEndUnixTime(date)}
-                    disabledDate={(current) => {
-                      return current && current <= startUnixTime;
+      <Box sx={{ display: "flex" }}>
+        <AppBar component="nav">
+          <Toolbar>
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+              DApp Demo
+            </Typography>
+            {address && (
+              <>
+                <Chip
+                  sx={{
+                    height: "auto",
+                    "& .MuiChip-label": {
+                      width: 80,
+                    },
+                  }}
+                  icon={<Avatar>{address.substring(2, 4)}</Avatar>}
+                  label={address}
+                  onClick={(event) => setAnchorEl(event.currentTarget)}
+                />
+                <Popover
+                  open={Boolean(anchorEl)}
+                  anchorEl={anchorEl}
+                  onClick={() => setAnchorEl(null)}
+                  anchorOrigin={{
+                    vertical: "bottom",
+                    horizontal: "left",
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      p: 2,
+                      width: 120,
+                      wordBreak: "break-word",
                     }}
-                    showTime
-                  />
-                </Form.Item>
-                <Form.Item label="Fund Per Guessing" required>
-                  <InputNumber
-                    value={fundPerGuessing}
-                    onChange={(value) => setFundPerGuessing(value)}
-                  />
-                </Form.Item>
-                <Form.Item label="Reward Percentage" required>
-                  <InputNumber
-                    value={rewardPercentage}
-                    onChange={(value) => setRewardPercentage(value)}
-                  />
-                </Form.Item>
-                <Flex gap={16} justify="center" wrap="wrap">
-                  <Flex gap={16} justify="center" wrap="wrap">
-                    {window.ethereum && (
-                      <Button
-                        type="primary"
-                        onClick={newGameViaWallet}
-                        loading={newGameWalletLoading}
-                      >
-                        New Game Via Wallet
-                      </Button>
-                    )}
-                    <Button
-                      onClick={newGameViaInfura}
-                      loading={newGameInfuralLoading}
-                    >
-                      New Game via Infura
-                    </Button>
-                  </Flex>
-                </Flex>
-              </Form>
-            </Card>
+                  >
+                    Balance: {balance} {tokenSymbol}
+                  </Typography>
+                </Popover>
+              </>
+            )}
+          </Toolbar>
+        </AppBar>
+      </Box>
+      <Toolbar />
+      <Container>
+        <Box component="main" sx={{ display: "grid", gap: 3 }}>
+          <Box
+            sx={{
+              "& > button": { m: 1 },
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+            }}
+          >
+            {window.ethereum && !isConnected && (
+              <>
+                <LoadingButton
+                  variant="contained"
+                  onClick={connectViaWallet}
+                  loading={connectWalletLoading}
+                >
+                  Connect Via Wallet
+                </LoadingButton>
+              </>
+            )}
 
-            <Card title="Reveal Game" hidden={!isOwner}>
-              <Form
-                labelCol={{ span: 10 }}
-                wrapperCol={{ span: 14 }}
-                style={{ maxWidth: 600 }}
+            {!isConnected && (
+              <LoadingButton
+                variant="outlined"
+                onClick={connectViaInfura}
+                loading={connectInfuralLoading}
               >
-                <Form.Item label="Game ID">
-                  <Input
-                    value={gameId}
-                    onChange={(e) => setGameId(e.target.value)}
-                  />
-                </Form.Item>
-                <Form.Item label="Greeting">
-                  <Input
-                    value={greeting}
-                    onChange={(e) => setGreeting(e.target.value)}
-                  />
-                </Form.Item>
-                <Form.Item label="Target Number">
-                  <InputNumber
-                    value={targetNumber}
-                    onChange={(value) => setTargetNumber(value)}
-                  />
-                </Form.Item>
-                <Flex gap={16} justify="center" wrap="wrap">
-                  <Flex gap={16} justify="center" wrap="wrap">
-                    {window.ethereum && (
-                      <Button
-                        type="primary"
-                        onClick={revealViaWallet}
-                        loading={revealWalletLoading}
-                      >
-                        Reveal Via Wallet
-                      </Button>
-                    )}
-                    <Button
-                      onClick={revealViaInfura}
-                      loading={revealInfuralLoading}
-                    >
-                      Reveal via Infura
-                    </Button>
-                  </Flex>
-                </Flex>
-              </Form>
-            </Card>
+                Connect Via Infura
+              </LoadingButton>
+            )}
+          </Box>
 
-            <Card title="Guess Number">
-              <Form
-                labelCol={{ span: 10 }}
-                wrapperCol={{ span: 14 }}
-                style={{ maxWidth: 600 }}
-              >
-                <Form.Item label="Game ID">
-                  <Input
-                    value={gameId}
-                    onChange={(e) => setGameId(e.target.value)}
-                  />
-                </Form.Item>
-                <Form.Item label="Number">
-                  <InputNumber
-                    value={number}
-                    onChange={(value) => setNumber(value)}
-                  />
-                </Form.Item>
-                <Flex gap={16} justify="center" wrap="wrap">
-                  <Flex gap={16} justify="center" wrap="wrap">
-                    {window.ethereum && (
-                      <Button
-                        type="primary"
-                        onClick={approveViaWallet}
-                        loading={approveWalletLoading}
-                      >
-                        Approve Via Wallet
-                      </Button>
-                    )}
-                    <Button
-                      onClick={approveViaInfura}
-                      loading={approveInfuralLoading}
+          {isConnected && (
+            <>
+              {game && gameWinNumbers && (
+                <Card>
+                  <CardHeader title="Game Info"></CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableBody>
+                        {[
+                          {
+                            key: "id",
+                            label: "ID",
+                            children: Number(game.id),
+                          },
+                          {
+                            key: "name",
+                            label: "Name",
+                            children: game.name,
+                          },
+                          {
+                            key: "targetNumber",
+                            label: "Target Number",
+                            children: Number(game.targetNumber),
+                          },
+                          {
+                            key: "startUnixTime",
+                            label: "Start Datetime",
+                            children: dayjs
+                              .unix(Number(game.startUnixTime))
+                              .format("YYYY-MM-DD HH:mm:ss"),
+                          },
+                          {
+                            key: "endtUnixTime",
+                            label: "End Datetime",
+                            children: dayjs
+                              .unix(Number(game.endUnixTime))
+                              .format("YYYY-MM-DD HH:mm:ss"),
+                          },
+                          {
+                            key: "fundPerGuessing",
+                            label: "Fund Per Guessing",
+                            children: `${ethers.formatUnits(
+                              game.fundPerGuessing
+                            )} ${tokenSymbol}`,
+                          },
+                          {
+                            key: "totalFund",
+                            label: "Total Fund",
+                            children: `${ethers.formatUnits(
+                              game.totalFund
+                            )} ${tokenSymbol}`,
+                          },
+                          {
+                            key: "revealed",
+                            label: "Revealed",
+                            children: game.revealed ? "Yes" : "No",
+                          },
+                          {
+                            key: "rewardPercentage",
+                            label: "Reward Percentage",
+                            children: `${Number(game.rewardPercentage)}%`,
+                          },
+                          {
+                            key: "gameWinNumbers",
+                            label: "Win Numbers",
+                            children: `${[gameWinNumbers].join(",")}`,
+                          },
+                        ].map((row) => (
+                          <TableRow key={row.key}>
+                            <TableCell component="th" scope="row">
+                              {row.name}
+                            </TableCell>
+                            <TableCell align="right">{row.label}</TableCell>
+                            <TableCell align="left">{row.children}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+
+              {players && (
+                <Card>
+                  <CardHeader title="Game Players"></CardHeader>
+                  <CardContent>
+                    <List
+                      sx={{
+                        width: "100%",
+                        maxWidth: 360,
+                        bgcolor: "background.paper",
+                      }}
                     >
-                      Approve via Infura
-                    </Button>
-                  </Flex>
-                  <Flex gap={16} justify="center" wrap="wrap">
-                    {window.ethereum && (
-                      <Button
-                        type="primary"
-                        onClick={guessViaWallet}
-                        loading={guessWalletLoading}
-                      >
-                        Guess Via Wallet
-                      </Button>
-                    )}
-                    <Button
-                      onClick={guessViaInfura}
-                      loading={guessInfuralLoading}
+                      {players.map((player) => (
+                        <div key={player}>
+                          <ListItem alignItems="flex-start">
+                            <ListItemAvatar>
+                              <Avatar>{player.address.substring(2, 4)}</Avatar>
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={
+                                <React.Fragment>
+                                  <Typography
+                                    sx={{
+                                      display: "inline",
+                                      wordBreak: "break-word",
+                                    }}
+                                    component="span"
+                                    variant="body2"
+                                  >
+                                    {player.address}
+                                    {player.address === address && (
+                                      <Chip
+                                        label="Me"
+                                        color="secondary"
+                                        size="small"
+                                        sx={{ ml: 1 }}
+                                      />
+                                    )}
+                                  </Typography>
+                                </React.Fragment>
+                              }
+                              secondary={
+                                <React.Fragment>
+                                  <Typography
+                                    sx={{ display: "inline" }}
+                                    component="span"
+                                    variant="body2"
+                                  >
+                                    Guess Number: {player.number}
+                                  </Typography>
+                                </React.Fragment>
+                              }
+                            />
+                          </ListItem>
+                          <Divider variant="inset" component="li" />
+                        </div>
+                      ))}
+                    </List>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card hidden={!isOwner}>
+                <CardHeader title="New Game"></CardHeader>
+                <CardContent>
+                  <Container maxWidth="sm">
+                    <Box
+                      component="form"
+                      sx={{
+                        "& .MuiTextField-root": {
+                          my: 2,
+                          minWidth: "100%",
+                          maxWidth: 600,
+                        },
+                      }}
+                      noValidate
+                      autoComplete="off"
                     >
-                      Guess via Infura
-                    </Button>
-                  </Flex>
-                </Flex>
-              </Form>
-            </Card>
-          </>
-        )}
-      </Flex>
+                      <TextField
+                        label="Target Number"
+                        variant="outlined"
+                        type="number"
+                        value={targetNumber}
+                        onChange={(value) => setTargetNumber(value)}
+                      />
+                      <TextField
+                        label="Greeting"
+                        variant="outlined"
+                        value={greeting}
+                        onChange={(value) => setGreeting(value)}
+                      />
+                      <TextField
+                        label="Name"
+                        variant="outlined"
+                        value={name}
+                        onChange={(value) => setName(value)}
+                      />
+                      <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <DateTimePicker
+                          label="Start Datetime"
+                          format="YYYY-MM-DD HH:mm:ss"
+                          views={[
+                            "year",
+                            "month",
+                            "day",
+                            "hours",
+                            "minutes",
+                            "seconds",
+                          ]}
+                          ampm={false}
+                          value={startUnixTime}
+                          onChange={(date) => setStartUnixTime(date)}
+                        />
+                        <DateTimePicker
+                          label="End Datetime"
+                          format="YYYY-MM-DD HH:mm:ss"
+                          views={[
+                            "year",
+                            "month",
+                            "day",
+                            "hours",
+                            "minutes",
+                            "seconds",
+                          ]}
+                          ampm={false}
+                          value={endUnixTime}
+                          onChange={(date) => setEndUnixTime(date)}
+                        />
+                      </LocalizationProvider>
+                      <TextField
+                        label="Fund Per Guessing"
+                        variant="outlined"
+                        type="number"
+                        value={fundPerGuessing}
+                        onChange={(value) => setFundPerGuessing(value)}
+                      />
+                      <TextField
+                        label="Reward Percentage"
+                        variant="outlined"
+                        type="number"
+                        value={rewardPercentage}
+                        onChange={(value) => setRewardPercentage(value)}
+                      />
+                      <Box
+                        sx={{
+                          "& > button": { m: 1 },
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {window.ethereum && (
+                          <LoadingButton
+                            variant="contained"
+                            onClick={newGameViaWallet}
+                            loading={newGameWalletLoading}
+                          >
+                            New Game Via Wallet
+                          </LoadingButton>
+                        )}
+                        <LoadingButton
+                          variant="outlined"
+                          onClick={newGameViaInfura}
+                          loading={newGameInfuralLoading}
+                        >
+                          New Game via Infura
+                        </LoadingButton>
+                      </Box>
+                    </Box>
+                  </Container>
+                </CardContent>
+              </Card>
+
+              <Card hidden={!isOwner}>
+                <CardHeader title="Reveal Game"></CardHeader>
+                <CardContent>
+                  <Container maxWidth="sm">
+                    <Box
+                      component="form"
+                      sx={{
+                        "& .MuiTextField-root": {
+                          my: 2,
+                          minWidth: "100%",
+                          maxWidth: 600,
+                        },
+                      }}
+                      noValidate
+                      autoComplete="off"
+                    >
+                      <TextField
+                        label="Game ID"
+                        variant="outlined"
+                        value={gameId}
+                        onChange={(value) => setGameId(value)}
+                      />
+                      <TextField
+                        label="Greeting"
+                        variant="outlined"
+                        value={greeting}
+                        onChange={(value) => setGreeting(value)}
+                      />
+                      <TextField
+                        label="Target Number"
+                        variant="outlined"
+                        type="number"
+                        value={targetNumber}
+                        onChange={(value) => setTargetNumber(value)}
+                      />
+                      <Box
+                        sx={{
+                          "& > button": { m: 1 },
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {window.ethereum && (
+                          <LoadingButton
+                            variant="contained"
+                            onClick={revealViaWallet}
+                            loading={revealWalletLoading}
+                          >
+                            Reveal Via Wallet
+                          </LoadingButton>
+                        )}
+                        <LoadingButton
+                          variant="outlined"
+                          onClick={revealViaInfura}
+                          loading={revealInfuralLoading}
+                        >
+                          Reveal via Infura
+                        </LoadingButton>
+                      </Box>
+                    </Box>
+                  </Container>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader title="Guess Number"></CardHeader>
+                <CardContent>
+                  <Container maxWidth="sm">
+                    <Box
+                      component="form"
+                      sx={{
+                        "& .MuiTextField-root": {
+                          my: 2,
+                          minWidth: "100%",
+                          maxWidth: 600,
+                        },
+                      }}
+                      noValidate
+                      autoComplete="off"
+                    >
+                      <TextField
+                        label="Game ID"
+                        variant="outlined"
+                        value={gameId}
+                        onChange={(value) => setGameId(value)}
+                      />
+                      <TextField
+                        label="Number"
+                        variant="outlined"
+                        type="number"
+                        value={number}
+                        onChange={(value) => setNumber(value)}
+                      />
+                      <Box
+                        sx={{
+                          "& > button": { m: 1 },
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {window.ethereum && (
+                          <LoadingButton
+                            variant="contained"
+                            onClick={approveViaWallet}
+                            loading={approveWalletLoading}
+                          >
+                            Approve Via Wallet
+                          </LoadingButton>
+                        )}
+                        <LoadingButton
+                          variant="outlined"
+                          onClick={approveViaInfura}
+                          loading={approveInfuralLoading}
+                        >
+                          Approve via Infura
+                        </LoadingButton>
+                        {window.ethereum && (
+                          <LoadingButton
+                            variant="contained"
+                            onClick={guessViaWallet}
+                            loading={guessWalletLoading}
+                          >
+                            Guess Via Wallet
+                          </LoadingButton>
+                        )}
+                        <LoadingButton
+                          variant="outlined"
+                          onClick={guessViaInfura}
+                          loading={guessInfuralLoading}
+                        >
+                          Guess via Infura
+                        </LoadingButton>
+                      </Box>
+                    </Box>
+                  </Container>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </Box>
+      </Container>
     </>
   );
 }

@@ -83,7 +83,7 @@ function App() {
       getBalance(tokenContract);
     } catch (error) {
       console.error(error);
-      openNotification(error.code, error.action);
+      openNotification(error.action, error.reason);
     } finally {
       setBalanceWalletLoading(false);
     }
@@ -95,7 +95,7 @@ function App() {
       getBalance(tokenContract, signer);
     } catch (error) {
       console.error(error);
-      openNotification(error.code, error.action);
+      openNotification(error.action, error.reason);
     } finally {
       setBalanceInfuralLoading(false);
     }
@@ -107,7 +107,7 @@ function App() {
       await sendTransaction(tokenContract, recipientAddress, amount);
     } catch (error) {
       console.error(error);
-      openNotification(error.code, error.action);
+      openNotification(error.action, error.reason);
     } finally {
       setTransferWalletLoading(false);
     }
@@ -119,7 +119,7 @@ function App() {
       await sendTransaction(tokenContract, recipientAddress, amount, signer);
     } catch (error) {
       console.error(error);
-      openNotification(error.code, error.action);
+      openNotification(error.action, error.reason);
     } finally {
       setTransferInfuraLoading(false);
     }
@@ -141,7 +141,7 @@ function App() {
       await getCurrentGame(gameContract);
     } catch (error) {
       console.error(error);
-      openNotification(error.code, error.action);
+      openNotification(error.action, error.reason);
     } finally {
       setNewGameWalletLoading(false);
     }
@@ -164,7 +164,7 @@ function App() {
       await getCurrentGame(gameContract, signer);
     } catch (error) {
       console.error(error);
-      openNotification(error.code, error.action);
+      openNotification(error.action, error.reason);
     } finally {
       setNewGameInfuraLoading(false);
     }
@@ -176,7 +176,7 @@ function App() {
       await approve(tokenContract, gameContract, amount);
     } catch (error) {
       console.error(error);
-      openNotification(error.code, error.action);
+      openNotification(error.action, error.reason);
     } finally {
       setApproveWalletLoading(false);
     }
@@ -188,7 +188,7 @@ function App() {
       await approve(tokenContract, gameContract, amount, signer);
     } catch (error) {
       console.error(error);
-      openNotification(error.code, error.action);
+      openNotification(error.action, error.reason);
     } finally {
       setApproveInfuraLoading(false);
     }
@@ -200,7 +200,7 @@ function App() {
       await guess(gameContract, gameId, number);
     } catch (error) {
       console.error(error);
-      openNotification(error.code, error.action);
+      openNotification(error.action, error.reason);
     } finally {
       setGuessWalletLoading(false);
     }
@@ -212,7 +212,7 @@ function App() {
       await guess(gameContract, gameId, number, signer);
     } catch (error) {
       console.error(error);
-      openNotification(error.code, error.action);
+      openNotification(error.action, error.reason);
     } finally {
       setGuessInfuraLoading(false);
     }
@@ -224,7 +224,7 @@ function App() {
       await reveal(gameContract, gameId, number, greeting);
     } catch (error) {
       console.error(error);
-      openNotification(error.code, error.action);
+      openNotification(error.action, error.reason);
     } finally {
       setRevealWalletLoading(false);
     }
@@ -236,7 +236,7 @@ function App() {
       await reveal(gameContract, gameId, number, greeting, signer);
     } catch (error) {
       console.error(error);
-      openNotification(error.code, error.action);
+      openNotification(error.action, error.reason);
     } finally {
       setRevealInfuraLoading(false);
     }
@@ -250,7 +250,7 @@ function App() {
       await getFundToken(gameContract);
     } catch (error) {
       console.error(error);
-      openNotification(error.code, error.action);
+      openNotification(error.action, error.reason);
     } finally {
       setConnectWalletLoading(false);
     }
@@ -264,7 +264,7 @@ function App() {
       await getFundToken(gameContract, signer);
     } catch (error) {
       console.error(error);
-      openNotification(error.code, error.action);
+      openNotification(error.action, error.reason);
     } finally {
       setConnectInfuraLoading(false);
     }
@@ -576,7 +576,7 @@ function App() {
                             <Avatar>{player.address.substring(2, 4)}</Avatar>
                           }
                           title={
-                            <Typography.Text wrap>
+                            <Typography.Text>
                               {player.address}
                               {player.address === address && (
                                 <Tag color="magenta" style={{ marginLeft: 8 }}>

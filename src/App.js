@@ -17,10 +17,14 @@ import {
   Chip,
   Container,
   Divider,
+  IconButton,
   List,
   ListItem,
   ListItemAvatar,
+  ListItemIcon,
   ListItemText,
+  Menu,
+  MenuItem,
   Popover,
   Table,
   TableBody,
@@ -28,8 +32,10 @@ import {
   TableRow,
   TextField,
   Toolbar,
+  Tooltip,
   Typography,
 } from "@mui/material";
+import { Logout, Person } from "@mui/icons-material";
 
 function App() {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -386,6 +392,11 @@ function App() {
     });
   };
 
+  const disconnect = () => {
+    setIsConnected(false);
+    setAddress(null);
+  };
+
   // Configure the app frontend
   return (
     <>
@@ -397,45 +408,55 @@ function App() {
               DApp Demo
             </Typography>
             {address && (
-              <>
+              <Box sx={{ flexGrow: 0 }}>
                 <Chip
                   sx={{
-                    height: "auto",
                     "& .MuiChip-label": {
-                      width: 80,
+                      maxWidth: 80,
                     },
                   }}
-                  icon={<Avatar>{address.substring(2, 4)}</Avatar>}
+                  avatar={<Avatar>{address.substring(2, 4)}</Avatar>}
                   label={address}
+                  variant="outlined"
                   onClick={(event) => setAnchorEl(event.currentTarget)}
                 />
-                <Popover
-                  open={Boolean(anchorEl)}
+                <Menu
+                  sx={{ mt: "45px" }}
+                  id="menu-appbar"
                   anchorEl={anchorEl}
-                  onClick={() => setAnchorEl(null)}
                   anchorOrigin={{
-                    vertical: "bottom",
-                    horizontal: "left",
+                    vertical: "top",
+                    horizontal: "right",
                   }}
+                  keepMounted
+                  transformOrigin={{
+                    vertical: "top",
+                    horizontal: "right",
+                  }}
+                  open={Boolean(anchorEl)}
+                  onClose={() => setAnchorEl(null)}
                 >
-                  <Typography
-                    sx={{
-                      p: 2,
-                      width: 120,
-                      wordBreak: "break-word",
+                  <MenuItem
+                    key="disconnect"
+                    onClick={() => {
+                      setAnchorEl(null);
+                      disconnect();
                     }}
                   >
-                    Balance: {balance} {tokenSymbol}
-                  </Typography>
-                </Popover>
-              </>
+                    <ListItemIcon>
+                      <Logout fontSize="small" />
+                    </ListItemIcon>
+                    Disconnect
+                  </MenuItem>
+                </Menu>
+              </Box>
             )}
           </Toolbar>
         </AppBar>
       </Box>
       <Toolbar />
       <Container>
-        <Box component="main" sx={{ display: "grid", gap: 3 }}>
+        <Box component="main" sx={{ p: 2, display: "grid", gap: 3 }}>
           <Box
             sx={{
               "& > button": { m: 1 },
@@ -451,7 +472,7 @@ function App() {
                   onClick={connectViaWallet}
                   loading={connectWalletLoading}
                 >
-                  Connect Via Wallet
+                  Connect via Wallet
                 </LoadingButton>
               </>
             )}
@@ -461,8 +482,9 @@ function App() {
                 variant="outlined"
                 onClick={connectViaInfura}
                 loading={connectInfuralLoading}
+                sx={{ display: "none" }}
               >
-                Connect Via Infura
+                Connect via Infura
               </LoadingButton>
             )}
           </Box>
@@ -705,13 +727,14 @@ function App() {
                             onClick={newGameViaWallet}
                             loading={newGameWalletLoading}
                           >
-                            New Game Via Wallet
+                            New Game via Wallet
                           </LoadingButton>
                         )}
                         <LoadingButton
                           variant="outlined"
                           onClick={newGameViaInfura}
                           loading={newGameInfuralLoading}
+                          sx={{ display: "none" }}
                         >
                           New Game via Infura
                         </LoadingButton>
@@ -770,13 +793,14 @@ function App() {
                             onClick={revealViaWallet}
                             loading={revealWalletLoading}
                           >
-                            Reveal Via Wallet
+                            Reveal via Wallet
                           </LoadingButton>
                         )}
                         <LoadingButton
                           variant="outlined"
                           onClick={revealViaInfura}
                           loading={revealInfuralLoading}
+                          sx={{ display: "none" }}
                         >
                           Reveal via Infura
                         </LoadingButton>
@@ -829,13 +853,14 @@ function App() {
                             onClick={approveViaWallet}
                             loading={approveWalletLoading}
                           >
-                            Approve Via Wallet
+                            Approve via Wallet
                           </LoadingButton>
                         )}
                         <LoadingButton
                           variant="outlined"
                           onClick={approveViaInfura}
                           loading={approveInfuralLoading}
+                          sx={{ display: "none" }}
                         >
                           Approve via Infura
                         </LoadingButton>
@@ -845,13 +870,14 @@ function App() {
                             onClick={guessViaWallet}
                             loading={guessWalletLoading}
                           >
-                            Guess Via Wallet
+                            Guess via Wallet
                           </LoadingButton>
                         )}
                         <LoadingButton
                           variant="outlined"
                           onClick={guessViaInfura}
                           loading={guessInfuralLoading}
+                          sx={{ display: "none" }}
                         >
                           Guess via Infura
                         </LoadingButton>

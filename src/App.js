@@ -10,14 +10,15 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import {
   AppBar,
   Avatar,
+  Backdrop,
   Box,
   Card,
   CardContent,
   CardHeader,
   Chip,
+  CircularProgress,
   Container,
   Divider,
-  IconButton,
   List,
   ListItem,
   ListItemAvatar,
@@ -25,19 +26,18 @@ import {
   ListItemText,
   Menu,
   MenuItem,
-  Popover,
   Table,
   TableBody,
   TableCell,
   TableRow,
   TextField,
   Toolbar,
-  Tooltip,
   Typography,
 } from "@mui/material";
-import { Logout, Person } from "@mui/icons-material";
+import { Logout } from "@mui/icons-material";
 
 function App() {
+  const [loading, setLoading] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
@@ -54,18 +54,18 @@ function App() {
   const [gameContract] = useState(process.env.REACT_APP_GAME_CONTRACT);
   const [amount] = useState("100");
 
-  const [balance, setBalance] = useState(0.0);
+  const [balance, setBalance] = useState();
 
-  const [targetNumber, setTargetNumber] = useState(20);
+  const [targetNumber, setTargetNumber] = useState("20");
   const [greeting, setGreeting] = useState("Hello World");
   const [name, setName] = useState("Guess Game");
   const [startUnixTime, setStartUnixTime] = useState(dayjs());
   const [endUnixTime, setEndUnixTime] = useState(dayjs());
   const [fundPerGuessing, setFundPerGuessing] = useState("10");
-  const [rewardPercentage, setRewardPercentage] = useState(10);
+  const [rewardPercentage, setRewardPercentage] = useState("10");
 
-  const [gameId, setGameId] = useState(1001);
-  const [number, setNumber] = useState(20);
+  const [gameId, setGameId] = useState("1001");
+  const [number, setNumber] = useState("20");
 
   const [newGameWalletLoading, setNewGameWalletLoading] = useState(false);
   const [newGameInfuralLoading, setNewGameInfuraLoading] = useState(false);
@@ -156,6 +156,7 @@ function App() {
     try {
       setGuessWalletLoading(true);
       await guess(gameContract, gameId, number);
+      await getCurrentGame(gameContract);
     } catch (error) {
       console.error(error);
       openNotification(error.action, error.reason);
@@ -168,6 +169,7 @@ function App() {
     try {
       setGuessInfuraLoading(true);
       await guess(gameContract, gameId, number, signer);
+      await getCurrentGame(gameContract, signer);
     } catch (error) {
       console.error(error);
       openNotification(error.action, error.reason);
@@ -180,6 +182,7 @@ function App() {
     try {
       setRevealWalletLoading(true);
       await reveal(gameContract, gameId, number, greeting);
+      await getCurrentGame(gameContract);
     } catch (error) {
       console.error(error);
       openNotification(error.action, error.reason);
@@ -192,6 +195,7 @@ function App() {
     try {
       setRevealInfuraLoading(true);
       await reveal(gameContract, gameId, number, greeting, signer);
+      await getCurrentGame(gameContract, signer);
     } catch (error) {
       console.error(error);
       openNotification(error.action, error.reason);
@@ -203,6 +207,7 @@ function App() {
   const connectViaWallet = async () => {
     try {
       setConnectWalletLoading(true);
+      setLoading(true);
       await connect(gameContract);
       await getCurrentGame(gameContract);
       await getBalanceOfFundToken(gameContract);
@@ -211,6 +216,7 @@ function App() {
       openNotification(error.action, error.reason);
     } finally {
       setConnectWalletLoading(false);
+      setLoading(false);
     }
   };
 
@@ -457,27 +463,27 @@ function App() {
       <Toolbar />
       <Container>
         <Box component="main" sx={{ p: 2, display: "grid", gap: 3 }}>
-          <Box
-            sx={{
-              "& > button": { m: 1 },
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "center",
-            }}
-          >
-            {window.ethereum && !isConnected && (
-              <>
-                <LoadingButton
-                  variant="contained"
-                  onClick={connectViaWallet}
-                  loading={connectWalletLoading}
-                >
-                  Connect via Wallet
-                </LoadingButton>
-              </>
-            )}
+          {!isConnected && (
+            <Box
+              sx={{
+                "& > button": { m: 1 },
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+              }}
+            >
+              {window.ethereum && (
+                <>
+                  <LoadingButton
+                    variant="contained"
+                    onClick={connectViaWallet}
+                    loading={connectWalletLoading}
+                  >
+                    Connect via Wallet
+                  </LoadingButton>
+                </>
+              )}
 
-            {!isConnected && (
               <LoadingButton
                 variant="outlined"
                 onClick={connectViaInfura}
@@ -486,8 +492,14 @@ function App() {
               >
                 Connect via Infura
               </LoadingButton>
-            )}
-          </Box>
+            </Box>
+          )}
+
+          {balance && tokenSymbol && (
+            <Typography variant="h6">
+              Balance: {balance} {tokenSymbol}
+            </Typography>
+          )}
 
           {isConnected && (
             <>
@@ -653,19 +665,21 @@ function App() {
                         variant="outlined"
                         type="number"
                         value={targetNumber}
-                        onChange={(value) => setTargetNumber(value)}
+                        onChange={(event) =>
+                          setTargetNumber(event.target.value)
+                        }
                       />
                       <TextField
                         label="Greeting"
                         variant="outlined"
                         value={greeting}
-                        onChange={(value) => setGreeting(value)}
+                        onChange={(event) => setGreeting(event.target.value)}
                       />
                       <TextField
                         label="Name"
                         variant="outlined"
                         value={name}
-                        onChange={(value) => setName(value)}
+                        onChange={(event) => setName(event.target.value)}
                       />
                       <LocalizationProvider dateAdapter={AdapterDayjs}>
                         <DateTimePicker
@@ -704,14 +718,18 @@ function App() {
                         variant="outlined"
                         type="number"
                         value={fundPerGuessing}
-                        onChange={(value) => setFundPerGuessing(value)}
+                        onChange={(event) =>
+                          setFundPerGuessing(event.target.value)
+                        }
                       />
                       <TextField
                         label="Reward Percentage"
                         variant="outlined"
                         type="number"
                         value={rewardPercentage}
-                        onChange={(value) => setRewardPercentage(value)}
+                        onChange={(event) =>
+                          setRewardPercentage(event.target.value)
+                        }
                       />
                       <Box
                         sx={{
@@ -764,20 +782,22 @@ function App() {
                         label="Game ID"
                         variant="outlined"
                         value={gameId}
-                        onChange={(value) => setGameId(value)}
+                        onChange={(event) => setGameId(event.target.value)}
                       />
                       <TextField
                         label="Greeting"
                         variant="outlined"
                         value={greeting}
-                        onChange={(value) => setGreeting(value)}
+                        onChange={(event) => setGreeting(event.target.value)}
                       />
                       <TextField
                         label="Target Number"
                         variant="outlined"
                         type="number"
                         value={targetNumber}
-                        onChange={(value) => setTargetNumber(value)}
+                        onChange={(event) =>
+                          setTargetNumber(event.target.value)
+                        }
                       />
                       <Box
                         sx={{
@@ -830,14 +850,14 @@ function App() {
                         label="Game ID"
                         variant="outlined"
                         value={gameId}
-                        onChange={(value) => setGameId(value)}
+                        onChange={(event) => setGameId(event.target.value)}
                       />
                       <TextField
                         label="Number"
                         variant="outlined"
                         type="number"
                         value={number}
-                        onChange={(value) => setNumber(value)}
+                        onChange={(event) => setNumber(event.target.value)}
                       />
                       <Box
                         sx={{
@@ -890,6 +910,9 @@ function App() {
           )}
         </Box>
       </Container>
+      <Backdrop sx={{ backgroundColor: "#00000080" }} open={loading}>
+        <CircularProgress />
+      </Backdrop>
     </>
   );
 }

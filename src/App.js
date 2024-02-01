@@ -399,8 +399,10 @@ function App() {
   };
 
   const disconnect = () => {
-    setIsConnected(false);
+    setBalance(null);
+    setTokenSymbol(null);
     setAddress(null);
+    setIsConnected(false);
   };
 
   // Configure the app frontend

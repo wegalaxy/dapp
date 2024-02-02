@@ -43,8 +43,9 @@ function App() {
   const [isOwner, setIsOwner] = useState(false);
   const [address, setAddress] = useState();
   const [game, setGame] = useState();
-  const [gameWinNumbers, setGameWinNumbers] = useState();
+  const [gameWinRates, setGameWinRates] = useState();
   const [players, setPlayers] = useState();
+  const [rateDecimalPoints, setRateDecimalPoints] = useState();
   const [tokenSymbol, setTokenSymbol] = useState();
 
   const [network] = useState(process.env.REACT_APP_API_NETWORK);
@@ -52,20 +53,21 @@ function App() {
   const [privateKey] = useState(process.env.REACT_APP_PRIVATE_KEY);
   const [tokenContract] = useState(process.env.REACT_APP_TOKEN_CONTRACT);
   const [gameContract] = useState(process.env.REACT_APP_GAME_CONTRACT);
-  const [amount] = useState("100");
+  const [amount] = useState("10000");
 
   const [balance, setBalance] = useState();
 
-  const [targetNumber, setTargetNumber] = useState("20");
-  const [greeting, setGreeting] = useState("Hello World");
-  const [name, setName] = useState("Guess Game");
+  const [name, setName] = useState("FX Rate - JPY/HKD");
+  const [currencyPair, setCurrencyPair] = useState("JPY/HKD");
+  const [rateUnixTime, setRateUnixTime] = useState(dayjs());
   const [startUnixTime, setStartUnixTime] = useState(dayjs());
   const [endUnixTime, setEndUnixTime] = useState(dayjs());
-  const [fundPerGuessing, setFundPerGuessing] = useState("10");
+  const [fundPerGuessingInWei, setFundPerGuessingInWei] = useState("10");
   const [rewardPercentage, setRewardPercentage] = useState("10");
 
-  const [gameId, setGameId] = useState("1001");
-  const [number, setNumber] = useState("20");
+  const [gameId, setGameId] = useState("1000");
+  const [rate, setRate] = useState("534280000");
+  const [resultRate, setResultRate] = useState("534280000");
 
   const [newGameWalletLoading, setNewGameWalletLoading] = useState(false);
   const [newGameInfuralLoading, setNewGameInfuraLoading] = useState(false);
@@ -88,12 +90,12 @@ function App() {
       setNewGameWalletLoading(true);
       await newGame(
         gameContract,
-        targetNumber,
-        greeting,
         name,
+        currencyPair,
+        rateUnixTime,
         startUnixTime,
         endUnixTime,
-        fundPerGuessing,
+        fundPerGuessingInWei,
         rewardPercentage
       );
       await getCurrentGame(gameContract);
@@ -110,12 +112,12 @@ function App() {
       setNewGameInfuraLoading(true);
       await newGame(
         gameContract,
-        targetNumber,
-        greeting,
         name,
+        currencyPair,
+        rateUnixTime,
         startUnixTime,
         endUnixTime,
-        fundPerGuessing,
+        fundPerGuessingInWei,
         rewardPercentage,
         signer
       );
@@ -155,7 +157,7 @@ function App() {
   const guessViaWallet = async () => {
     try {
       setGuessWalletLoading(true);
-      await guess(gameContract, gameId, number);
+      await guess(gameContract, gameId, rate);
       await getCurrentGame(gameContract);
     } catch (error) {
       console.error(error);
@@ -168,7 +170,7 @@ function App() {
   const guessViaInfura = async () => {
     try {
       setGuessInfuraLoading(true);
-      await guess(gameContract, gameId, number, signer);
+      await guess(gameContract, gameId, rate, signer);
       await getCurrentGame(gameContract, signer);
     } catch (error) {
       console.error(error);
@@ -181,7 +183,7 @@ function App() {
   const revealViaWallet = async () => {
     try {
       setRevealWalletLoading(true);
-      await reveal(gameContract, gameId, number, greeting);
+      await reveal(gameContract, gameId, resultRate);
       await getCurrentGame(gameContract);
     } catch (error) {
       console.error(error);
@@ -194,7 +196,7 @@ function App() {
   const revealViaInfura = async () => {
     try {
       setRevealInfuraLoading(true);
-      await reveal(gameContract, gameId, number, greeting, signer);
+      await reveal(gameContract, gameId, resultRate, signer);
       await getCurrentGame(gameContract, signer);
     } catch (error) {
       console.error(error);
@@ -237,12 +239,12 @@ function App() {
   // New game using either the Web3Provider or InfuraProvider
   const newGame = async (
     gameContract,
-    targetNumber,
-    greeting,
     name,
+    currencyPair,
+    rateUnixTime,
     startUnixTime,
     endUnixTime,
-    fundPerGuessing,
+    fundPerGuessingInWei,
     rewardPercentage,
     signer
   ) => {
@@ -256,13 +258,13 @@ function App() {
       }
     }
     const contract = new ethers.Contract(gameContract, GAME_ABI, signer);
-    const hash = await contract.generateGameHash(targetNumber, greeting);
     const tx = await contract.newGame(
       name,
-      hash,
+      currencyPair,
+      rateUnixTime.unix(),
       startUnixTime.unix(),
       endUnixTime.unix(),
-      ethers.parseUnits(fundPerGuessing),
+      ethers.parseUnits(fundPerGuessingInWei),
       rewardPercentage
     );
     console.log(await tx.wait());
@@ -285,7 +287,7 @@ function App() {
   };
 
   // Guess number using either the Web3Provider or InfuraProvider
-  const guess = async (gameContract, gameId, number, signer) => {
+  const guess = async (gameContract, gameId, rate, signer) => {
     if (signer == null) {
       // Web3 Provider
       if (!window.ethereum) console.error("No wallet found!");
@@ -296,12 +298,15 @@ function App() {
       }
     }
     const contract = new ethers.Contract(gameContract, GAME_ABI, signer);
-    const tx = await contract.guess(gameId, number);
+    const tx = await contract.guess(
+      gameId,
+      rate.padEnd(rateDecimalPoints, "0")
+    );
     console.log(await tx.wait());
   };
 
   // Reveal traget number using either the Web3Provider or InfuraProvider
-  const reveal = async (gameContract, gameId, number, greeting, signer) => {
+  const reveal = async (gameContract, gameId, resultRate, signer) => {
     if (signer == null) {
       // Web3 Provider
       if (!window.ethereum) console.error("No wallet found!");
@@ -312,7 +317,10 @@ function App() {
       }
     }
     const contract = new ethers.Contract(gameContract, GAME_ABI, signer);
-    const tx = await contract.revealTargetNumber(gameId, number, greeting);
+    const tx = await contract.revealGame(
+      gameId,
+      resultRate.padEnd(rateDecimalPoints, "0")
+    );
     console.log(await tx.wait());
   };
 
@@ -347,24 +355,26 @@ function App() {
     const contract = new ethers.Contract(gameContract, GAME_ABI, signer);
     const currentGameId = await contract.currentGameId();
     const game = await contract.games(currentGameId);
-    const gameWinNumbers = await contract.getGameWinNumbers(currentGameId);
-    const playerAddresses = await contract.getGamePlayers(currentGameId);
+    const gameWinRates = await contract.getWinningRates(currentGameId);
+    const playerAddresses = await contract.getPlayers(currentGameId);
+    const rateDecimalPoints = await contract.rateDecimalPoints();
     const players = [];
     for (let i = 0; i < playerAddresses.length; i++) {
       let playerAddress = playerAddresses[i];
-      let guessNumber = await contract.getGamePlayerGuess(
+      let guessRate = await contract.getRatesByPlayer(
         currentGameId,
         playerAddress
       );
       players.push({
         address: playerAddress,
-        number: Number(guessNumber),
+        rate: guessRate.join(","),
       });
     }
     setGameId(Number(currentGameId));
     setGame(game);
-    setGameWinNumbers(gameWinNumbers);
+    setGameWinRates(gameWinRates);
     setPlayers(players);
+    setRateDecimalPoints(Number(rateDecimalPoints));
   };
 
   const getBalanceOfFundToken = async (gameContract, signer = null) => {
@@ -505,7 +515,7 @@ function App() {
 
           {isConnected && (
             <>
-              {game && gameWinNumbers && (
+              {game && gameWinRates && (
                 <Card>
                   <CardHeader title="Game Info"></CardHeader>
                   <CardContent>
@@ -518,14 +528,16 @@ function App() {
                             children: Number(game.id),
                           },
                           {
-                            key: "name",
-                            label: "Name",
-                            children: game.name,
+                            key: "currencyPair",
+                            label: "Currency Pair",
+                            children: game.currencyPair,
                           },
                           {
-                            key: "targetNumber",
-                            label: "Target Number",
-                            children: Number(game.targetNumber),
+                            key: "rateUnixTime",
+                            label: "Rate Datetime",
+                            children: dayjs
+                              .unix(Number(game.rateUnixTime))
+                              .format("YYYY-MM-DD HH:mm:ss"),
                           },
                           {
                             key: "startUnixTime",
@@ -542,17 +554,17 @@ function App() {
                               .format("YYYY-MM-DD HH:mm:ss"),
                           },
                           {
-                            key: "fundPerGuessing",
-                            label: "Fund Per Guessing",
+                            key: "fundPerGuessingInWei",
+                            label: "Fund Per Guessing In Wei",
                             children: `${ethers.formatUnits(
-                              game.fundPerGuessing
+                              game.fundPerGuessingInWei
                             )} ${tokenSymbol}`,
                           },
                           {
-                            key: "totalFund",
-                            label: "Total Fund",
+                            key: "totalFundInWei",
+                            label: "Total Fund In Wei",
                             children: `${ethers.formatUnits(
-                              game.totalFund
+                              game.totalFundInWei
                             )} ${tokenSymbol}`,
                           },
                           {
@@ -566,9 +578,19 @@ function App() {
                             children: `${Number(game.rewardPercentage)}%`,
                           },
                           {
+                            key: "resultRate",
+                            label: "Result Rate",
+                            children: `${Number(game.resultRate)}`,
+                          },
+                          {
+                            key: "numberOfGueses",
+                            label: "Number Of Gueses",
+                            children: `${Number(game.numberOfGueses)}`,
+                          },
+                          {
                             key: "gameWinNumbers",
                             label: "Win Numbers",
-                            children: `${[gameWinNumbers].join(",")}`,
+                            children: `${[gameWinRates].join(",")}`,
                           },
                         ].map((row) => (
                           <TableRow key={row.key}>
@@ -597,7 +619,7 @@ function App() {
                       }}
                     >
                       {players.map((player) => (
-                        <div key={player}>
+                        <div key={player.address}>
                           <ListItem alignItems="flex-start">
                             <ListItemAvatar>
                               <Avatar>{player.address.substring(2, 4)}</Avatar>
@@ -632,7 +654,7 @@ function App() {
                                     component="span"
                                     variant="body2"
                                   >
-                                    Guess Number: {player.number}
+                                    Guess Rate: {player.rate}
                                   </Typography>
                                 </React.Fragment>
                               }
@@ -663,27 +685,35 @@ function App() {
                       autoComplete="off"
                     >
                       <TextField
-                        label="Target Number"
-                        variant="outlined"
-                        type="number"
-                        value={targetNumber}
-                        onChange={(event) =>
-                          setTargetNumber(event.target.value)
-                        }
-                      />
-                      <TextField
-                        label="Greeting"
-                        variant="outlined"
-                        value={greeting}
-                        onChange={(event) => setGreeting(event.target.value)}
-                      />
-                      <TextField
                         label="Name"
                         variant="outlined"
                         value={name}
                         onChange={(event) => setName(event.target.value)}
                       />
+                      <TextField
+                        label="Currency Pair"
+                        variant="outlined"
+                        value={currencyPair}
+                        onChange={(event) =>
+                          setCurrencyPair(event.target.value)
+                        }
+                      />
                       <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <DateTimePicker
+                          label="Rate Datetime"
+                          format="YYYY-MM-DD HH:mm:ss"
+                          views={[
+                            "year",
+                            "month",
+                            "day",
+                            "hours",
+                            "minutes",
+                            "seconds",
+                          ]}
+                          ampm={false}
+                          value={rateUnixTime}
+                          onChange={(date) => setRateUnixTime(date)}
+                        />
                         <DateTimePicker
                           label="Start Datetime"
                           format="YYYY-MM-DD HH:mm:ss"
@@ -716,12 +746,12 @@ function App() {
                         />
                       </LocalizationProvider>
                       <TextField
-                        label="Fund Per Guessing"
+                        label="Fund Per Guessing In Wei"
                         variant="outlined"
                         type="number"
-                        value={fundPerGuessing}
+                        value={fundPerGuessingInWei}
                         onChange={(event) =>
-                          setFundPerGuessing(event.target.value)
+                          setFundPerGuessingInWei(event.target.value)
                         }
                       />
                       <TextField
@@ -787,18 +817,18 @@ function App() {
                         onChange={(event) => setGameId(event.target.value)}
                       />
                       <TextField
-                        label="Greeting"
-                        variant="outlined"
-                        value={greeting}
-                        onChange={(event) => setGreeting(event.target.value)}
-                      />
-                      <TextField
-                        label="Target Number"
+                        label="Result Rate"
                         variant="outlined"
                         type="number"
-                        value={targetNumber}
+                        value={resultRate}
                         onChange={(event) =>
-                          setTargetNumber(event.target.value)
+                          setResultRate(
+                            event.target.value
+                              ? Math.max(0, parseInt(event.target.value))
+                                  .toString()
+                                  .slice(0, rateDecimalPoints)
+                              : "0"
+                          )
                         }
                       />
                       <Box
@@ -833,7 +863,7 @@ function App() {
               </Card>
 
               <Card>
-                <CardHeader title="Guess Number"></CardHeader>
+                <CardHeader title="Guess Rate"></CardHeader>
                 <CardContent>
                   <Container maxWidth="sm">
                     <Box
@@ -855,11 +885,19 @@ function App() {
                         onChange={(event) => setGameId(event.target.value)}
                       />
                       <TextField
-                        label="Number"
+                        label="Rate"
                         variant="outlined"
                         type="number"
-                        value={number}
-                        onChange={(event) => setNumber(event.target.value)}
+                        value={rate}
+                        onChange={(event) =>
+                          setRate(
+                            event.target.value
+                              ? Math.max(0, parseInt(event.target.value))
+                                  .toString()
+                                  .slice(0, rateDecimalPoints)
+                              : "0"
+                          )
+                        }
                       />
                       <Box
                         sx={{

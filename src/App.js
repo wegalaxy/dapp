@@ -19,6 +19,7 @@ import {
   CircularProgress,
   Container,
   Divider,
+  Link,
   List,
   ListItem,
   ListItemAvatar,
@@ -34,7 +35,7 @@ import {
   Toolbar,
   Typography,
 } from "@mui/material";
-import { Logout } from "@mui/icons-material";
+import { HelpOutline, Logout } from "@mui/icons-material";
 
 function App() {
   const [loading, setLoading] = useState(false);
@@ -361,13 +362,13 @@ function App() {
     const players = [];
     for (let i = 0; i < playerAddresses.length; i++) {
       let playerAddress = playerAddresses[i];
-      let guessRate = await contract.getRatesByPlayer(
+      let guessRates = await contract.getRatesByPlayer(
         currentGameId,
         playerAddress
       );
       players.push({
         address: playerAddress,
-        rate: guessRate.join(","),
+        rates: guessRates,
       });
     }
     setGameId(Number(currentGameId));
@@ -491,7 +492,7 @@ function App() {
                     onClick={connectViaWallet}
                     loading={connectWalletLoading}
                   >
-                    Connect via Wallet
+                    Connect
                   </LoadingButton>
                 </>
               )}
@@ -555,14 +556,14 @@ function App() {
                           },
                           {
                             key: "fundPerGuessingInWei",
-                            label: "Fund Per Guessing In Wei",
+                            label: "Fund Per Guessing",
                             children: `${ethers.formatUnits(
                               game.fundPerGuessingInWei
                             )} ${tokenSymbol}`,
                           },
                           {
                             key: "totalFundInWei",
-                            label: "Total Fund In Wei",
+                            label: "Total Fund",
                             children: `${ethers.formatUnits(
                               game.totalFundInWei
                             )} ${tokenSymbol}`,
@@ -588,9 +589,9 @@ function App() {
                             children: `${Number(game.numberOfGueses)}`,
                           },
                           {
-                            key: "gameWinNumbers",
-                            label: "Win Numbers",
-                            children: `${[gameWinRates].join(",")}`,
+                            key: "gameWinRates",
+                            label: "Winning Rates",
+                            children: `${gameWinRates.join(",")}`,
                           },
                         ].map((row) => (
                           <TableRow key={row.key}>
@@ -611,13 +612,7 @@ function App() {
                 <Card>
                   <CardHeader title="Game Players"></CardHeader>
                   <CardContent>
-                    <List
-                      sx={{
-                        width: "100%",
-                        maxWidth: 360,
-                        bgcolor: "background.paper",
-                      }}
-                    >
+                    <List>
                       {players.map((player) => (
                         <div key={player.address}>
                           <ListItem alignItems="flex-start">
@@ -644,6 +639,16 @@ function App() {
                                         sx={{ ml: 1 }}
                                       />
                                     )}
+                                    {gameWinRates.every((rate) =>
+                                      player.rates.includes(rate)
+                                    ) && (
+                                      <Chip
+                                        label="Winner"
+                                        color="success"
+                                        size="small"
+                                        sx={{ ml: 1 }}
+                                      />
+                                    )}
                                   </Typography>
                                 </React.Fragment>
                               }
@@ -654,7 +659,7 @@ function App() {
                                     component="span"
                                     variant="body2"
                                   >
-                                    Guess Rate: {player.rate}
+                                    Guess Rate: {player.rates.join(",")}
                                   </Typography>
                                 </React.Fragment>
                               }
@@ -746,7 +751,7 @@ function App() {
                         />
                       </LocalizationProvider>
                       <TextField
-                        label="Fund Per Guessing In Wei"
+                        label="Fund Per Guessing"
                         variant="outlined"
                         type="number"
                         value={fundPerGuessingInWei}
@@ -777,7 +782,7 @@ function App() {
                             onClick={newGameViaWallet}
                             loading={newGameWalletLoading}
                           >
-                            New Game via Wallet
+                            New Game
                           </LoadingButton>
                         )}
                         <LoadingButton
@@ -845,7 +850,7 @@ function App() {
                             onClick={revealViaWallet}
                             loading={revealWalletLoading}
                           >
-                            Reveal via Wallet
+                            Reveal
                           </LoadingButton>
                         )}
                         <LoadingButton
@@ -908,13 +913,30 @@ function App() {
                         }}
                       >
                         {window.ethereum && (
-                          <LoadingButton
-                            variant="contained"
-                            onClick={approveViaWallet}
-                            loading={approveWalletLoading}
+                          <Box
+                            sx={{
+                              "& > button": { m: 1 },
+                              display: "flex",
+                              flexDirection: "row",
+                              justifyContent: "center",
+                              alignItems: "center",
+                            }}
                           >
-                            Approve via Wallet
-                          </LoadingButton>
+                            <LoadingButton
+                              variant="contained"
+                              onClick={approveViaWallet}
+                              loading={approveWalletLoading}
+                            >
+                              Approve
+                            </LoadingButton>
+                            <Link
+                              href="https://community.trustwallet.com/t/what-is-token-approval/242764 "
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <HelpOutline />
+                            </Link>
+                          </Box>
                         )}
                         <LoadingButton
                           variant="outlined"
@@ -930,7 +952,7 @@ function App() {
                             onClick={guessViaWallet}
                             loading={guessWalletLoading}
                           >
-                            Guess via Wallet
+                            Guess
                           </LoadingButton>
                         )}
                         <LoadingButton

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ethers } from "ethers";
 import "./App.css";
 import { notification } from "antd";
@@ -54,9 +54,10 @@ function App() {
   const [privateKey] = useState(process.env.REACT_APP_PRIVATE_KEY);
   const [tokenContract] = useState(process.env.REACT_APP_TOKEN_CONTRACT);
   const [gameContract] = useState(process.env.REACT_APP_GAME_CONTRACT);
-  const [amount] = useState("10000");
+  const [amount, setAmount] = useState("");
 
   const [balance, setBalance] = useState();
+  const [allowance, setAllowance] = useState("");
 
   const [name, setName] = useState("FX Rate - JPY/HKD");
   const [currencyPair, setCurrencyPair] = useState("JPY/HKD");
@@ -67,8 +68,8 @@ function App() {
   const [rewardPercentage, setRewardPercentage] = useState("10");
 
   const [gameId, setGameId] = useState("1000");
-  const [rate, setRate] = useState("534280000");
-  const [resultRate, setResultRate] = useState("534280000");
+  const [rate, setRate] = useState("0.053428000");
+  const [resultRate, setResultRate] = useState("0.053428000");
 
   const [newGameWalletLoading, setNewGameWalletLoading] = useState(false);
   const [newGameInfuralLoading, setNewGameInfuraLoading] = useState(false);
@@ -135,6 +136,7 @@ function App() {
     try {
       setApproveWalletLoading(true);
       await approve(tokenContract, gameContract, amount);
+      await getCurrentGame(gameContract);
     } catch (error) {
       console.error(error);
       openNotification(error.action, error.reason);
@@ -147,6 +149,7 @@ function App() {
     try {
       setApproveInfuraLoading(true);
       await approve(tokenContract, gameContract, amount, signer);
+      await getCurrentGame(gameContract, signer);
     } catch (error) {
       console.error(error);
       openNotification(error.action, error.reason);
@@ -213,10 +216,9 @@ function App() {
       setLoading(true);
       await connect(gameContract);
       await getCurrentGame(gameContract);
-      await getBalanceOfFundToken(gameContract);
     } catch (error) {
       console.error(error);
-      openNotification(error.action, error.reason);
+      // openNotification(error.action, error.reason);
     } finally {
       setConnectWalletLoading(false);
       setLoading(false);
@@ -228,10 +230,9 @@ function App() {
       setConnectInfuraLoading(true);
       await connect(gameContract, signer);
       await getCurrentGame(gameContract, signer);
-      await getBalanceOfFundToken(gameContract, signer);
     } catch (error) {
       console.error(error);
-      openNotification(error.action, error.reason);
+      // openNotification(error.action, error.reason);
     } finally {
       setConnectInfuraLoading(false);
     }
@@ -301,7 +302,7 @@ function App() {
     const contract = new ethers.Contract(gameContract, GAME_ABI, signer);
     const tx = await contract.guess(
       gameId,
-      rate.padEnd(rateDecimalPoints, "0")
+      rate * Math.pow(10, rateDecimalPoints)
     );
     console.log(await tx.wait());
   };
@@ -320,7 +321,7 @@ function App() {
     const contract = new ethers.Contract(gameContract, GAME_ABI, signer);
     const tx = await contract.revealGame(
       gameId,
-      resultRate.padEnd(rateDecimalPoints, "0")
+      resultRate * Math.pow(10, rateDecimalPoints)
     );
     console.log(await tx.wait());
   };
@@ -341,6 +342,21 @@ function App() {
     setAddress(address);
     setIsOwner(owner === address);
     setIsConnected(true);
+
+    const fundTokenContract = await contract.fundTokenContract();
+    const tokenContract = new ethers.Contract(
+      fundTokenContract,
+      TOKEN_ABI,
+      signer
+    );
+    const balance = await tokenContract.balanceOf(address);
+    const allowance = await tokenContract.allowance(owner, gameContract);
+    const tokenSymbol = await tokenContract.symbol();
+
+    setBalance(ethers.formatUnits(balance));
+    setAllowance(ethers.formatUnits(allowance));
+    setAmount(ethers.formatUnits(allowance));
+    setTokenSymbol(tokenSymbol);
   };
 
   const getCurrentGame = async (gameContract, signer = null) => {
@@ -368,37 +384,20 @@ function App() {
       );
       players.push({
         address: playerAddress,
-        rates: guessRates,
+        rates: guessRates.map((guessRate) =>
+          ethers.formatUnits(guessRate, rateDecimalPoints)
+        ),
       });
     }
     setGameId(Number(currentGameId));
     setGame(game);
-    setGameWinRates(gameWinRates);
+    setGameWinRates(
+      gameWinRates.map((gameWinRate) =>
+        ethers.formatUnits(gameWinRate, rateDecimalPoints)
+      )
+    );
     setPlayers(players);
     setRateDecimalPoints(Number(rateDecimalPoints));
-  };
-
-  const getBalanceOfFundToken = async (gameContract, signer = null) => {
-    if (signer == null) {
-      // Web3 Provider
-      if (!window.ethereum) console.error("No wallet found!");
-      else {
-        await window.ethereum.send("eth_requestAccounts");
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        signer = await provider.getSigner();
-      }
-    }
-    const contract = new ethers.Contract(gameContract, GAME_ABI, signer);
-    const fundTokenContract = await contract.fundTokenContract();
-    const tokenContract = new ethers.Contract(
-      fundTokenContract,
-      TOKEN_ABI,
-      signer
-    );
-    setBalance(
-      ethers.formatUnits(await tokenContract.balanceOf(signer.address))
-    );
-    setTokenSymbol(await tokenContract.symbol());
   };
 
   const openNotification = (code, action) => {
@@ -415,6 +414,11 @@ function App() {
     setAddress(null);
     setIsConnected(false);
   };
+
+  useEffect(() => {
+    connectViaWallet();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Configure the app frontend
   return (
@@ -508,16 +512,94 @@ function App() {
             </Box>
           )}
 
-          {balance && tokenSymbol && (
-            <Typography variant="h6">
-              Balance: {balance} {tokenSymbol}
-            </Typography>
-          )}
-
           {isConnected && (
             <>
+              <Card>
+                <CardHeader title="Profile"></CardHeader>
+                <CardContent>
+                  <Box
+                    component="form"
+                    sx={{
+                      "& .MuiTextField-root": {
+                        my: 2,
+                        minWidth: "100%",
+                        maxWidth: 600,
+                      },
+                    }}
+                    noValidate
+                    autoComplete="off"
+                  >
+                    {balance && tokenSymbol && (
+                      <Table>
+                        <TableBody>
+                          {[
+                            {
+                              key: "balance",
+                              label: "Balance",
+                              children: `${balance} ${tokenSymbol}`,
+                            },
+                            {
+                              key: "remainingAllowance",
+                              label: "Remaining Allowance",
+                              children: `${allowance} ${tokenSymbol}`,
+                            },
+                          ].map((row) => (
+                            <TableRow key={row.key}>
+                              <TableCell align="right">{row.label}</TableCell>
+                              <TableCell
+                                align="left"
+                                sx={{
+                                  whiteSpace: "normal",
+                                  wordBreak: "break-word",
+                                }}
+                              >
+                                {row.children}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                    <TextField
+                      label="Allowance"
+                      variant="outlined"
+                      type="number"
+                      value={amount}
+                      onChange={(event) => setAmount(event.target.value)}
+                      InputProps={{
+                        endAdornment: <>{tokenSymbol}</>,
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        "& > button": { m: 1 },
+                        display: "flex",
+                        flexDirection: "row",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      <LoadingButton
+                        variant="contained"
+                        onClick={approveViaWallet}
+                        loading={approveWalletLoading}
+                      >
+                        Approve
+                      </LoadingButton>
+                      <Link
+                        href="https://community.trustwallet.com/t/what-is-token-approval/242764 "
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <HelpOutline />
+                      </Link>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+
               {game && gameWinRates && (
-                <Card>
+                <Card hidden={!isOwner}>
                   <CardHeader title="Game Info"></CardHeader>
                   <CardContent>
                     <Table>
@@ -581,7 +663,10 @@ function App() {
                           {
                             key: "resultRate",
                             label: "Result Rate",
-                            children: `${Number(game.resultRate)}`,
+                            children: `${ethers.formatUnits(
+                              game.resultRate,
+                              rateDecimalPoints
+                            )}`,
                           },
                           {
                             key: "numberOfGueses",
@@ -595,9 +680,6 @@ function App() {
                           },
                         ].map((row) => (
                           <TableRow key={row.key}>
-                            <TableCell component="th" scope="row">
-                              {row.name}
-                            </TableCell>
                             <TableCell align="right">{row.label}</TableCell>
                             <TableCell align="left">{row.children}</TableCell>
                           </TableRow>
@@ -609,7 +691,7 @@ function App() {
               )}
 
               {players && (
-                <Card>
+                <Card hidden={!isOwner}>
                   <CardHeader title="Game Players"></CardHeader>
                   <CardContent>
                     <List>
@@ -639,16 +721,17 @@ function App() {
                                         sx={{ ml: 1 }}
                                       />
                                     )}
-                                    {gameWinRates.every((rate) =>
-                                      player.rates.includes(rate)
-                                    ) && (
-                                      <Chip
-                                        label="Winner"
-                                        color="success"
-                                        size="small"
-                                        sx={{ ml: 1 }}
-                                      />
-                                    )}
+                                    {gameWinRates.length > 0 &&
+                                      gameWinRates.every((rate) =>
+                                        player.rates.includes(rate)
+                                      ) && (
+                                        <Chip
+                                          label="Winner"
+                                          color="success"
+                                          size="small"
+                                          sx={{ ml: 1 }}
+                                        />
+                                      )}
                                   </Typography>
                                 </React.Fragment>
                               }
@@ -758,6 +841,9 @@ function App() {
                         onChange={(event) =>
                           setFundPerGuessingInWei(event.target.value)
                         }
+                        InputProps={{
+                          endAdornment: tokenSymbol,
+                        }}
                       />
                       <TextField
                         label="Reward Percentage"
@@ -826,15 +912,7 @@ function App() {
                         variant="outlined"
                         type="number"
                         value={resultRate}
-                        onChange={(event) =>
-                          setResultRate(
-                            event.target.value
-                              ? Math.max(0, parseInt(event.target.value))
-                                  .toString()
-                                  .slice(0, rateDecimalPoints)
-                              : "0"
-                          )
-                        }
+                        onChange={(event) => setResultRate(event.target.value)}
                       />
                       <Box
                         sx={{
@@ -868,7 +946,14 @@ function App() {
               </Card>
 
               <Card>
-                <CardHeader title="Guess Rate"></CardHeader>
+                <CardHeader
+                  title="Guess Rate"
+                  subheader={
+                    <>
+                      Fund Per Guessing: {fundPerGuessingInWei} {tokenSymbol}
+                    </>
+                  }
+                ></CardHeader>
                 <CardContent>
                   <Container maxWidth="sm">
                     <Box
@@ -894,15 +979,7 @@ function App() {
                         variant="outlined"
                         type="number"
                         value={rate}
-                        onChange={(event) =>
-                          setRate(
-                            event.target.value
-                              ? Math.max(0, parseInt(event.target.value))
-                                  .toString()
-                                  .slice(0, rateDecimalPoints)
-                              : "0"
-                          )
-                        }
+                        onChange={(event) => setRate(event.target.value)}
                       />
                       <Box
                         sx={{
@@ -912,32 +989,6 @@ function App() {
                           justifyContent: "center",
                         }}
                       >
-                        {window.ethereum && (
-                          <Box
-                            sx={{
-                              "& > button": { m: 1 },
-                              display: "flex",
-                              flexDirection: "row",
-                              justifyContent: "center",
-                              alignItems: "center",
-                            }}
-                          >
-                            <LoadingButton
-                              variant="contained"
-                              onClick={approveViaWallet}
-                              loading={approveWalletLoading}
-                            >
-                              Approve
-                            </LoadingButton>
-                            <Link
-                              href="https://community.trustwallet.com/t/what-is-token-approval/242764 "
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              <HelpOutline />
-                            </Link>
-                          </Box>
-                        )}
                         <LoadingButton
                           variant="outlined"
                           onClick={approveViaInfura}

@@ -353,7 +353,7 @@ function App() {
       signer
     );
     const balance = await tokenContract.balanceOf(address);
-    const allowance = await tokenContract.allowance(owner, gameContract);
+    const allowance = await tokenContract.allowance(address, gameContract);
     const tokenSymbol = await tokenContract.symbol();
 
     setBalance(ethers.formatUnits(balance));

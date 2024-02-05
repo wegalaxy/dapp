@@ -186,6 +186,31 @@ export const GAME_ABI = [
   {
     anonymous: false,
     inputs: [
+      {
+        indexed: false,
+        internalType: "address",
+        name: "owner",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "address",
+        name: "spender",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
+    ],
+    name: "Approved",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
       { indexed: false, internalType: "uint256", name: "id", type: "uint256" },
       { indexed: false, internalType: "string", name: "name", type: "string" },
       {
@@ -301,6 +326,21 @@ export const GAME_ABI = [
   },
   {
     inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    name: "gameResults",
+    outputs: [
+      { internalType: "uint256", name: "id", type: "uint256" },
+      { internalType: "uint256", name: "resultRate", type: "uint256" },
+      {
+        internalType: "uint256",
+        name: "rewardPerWinningGuess",
+        type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     name: "games",
     outputs: [
       { internalType: "uint256", name: "id", type: "uint256" },
@@ -316,8 +356,7 @@ export const GAME_ABI = [
       { internalType: "uint256", name: "totalFundInWei", type: "uint256" },
       { internalType: "uint256", name: "rewardPercentage", type: "uint256" },
       { internalType: "uint64", name: "rateUnixTime", type: "uint64" },
-      { internalType: "uint256", name: "numberOfGueses", type: "uint256" },
-      { internalType: "uint256", name: "resultRate", type: "uint256" },
+      { internalType: "uint256", name: "numberOfGuesses", type: "uint256" },
       { internalType: "bool", name: "revealed", type: "bool" },
     ],
     stateMutability: "view",

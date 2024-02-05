@@ -45,6 +45,7 @@ function App() {
   const [address, setAddress] = useState();
   const [game, setGame] = useState();
   const [gameWinRates, setGameWinRates] = useState();
+  const [gameResults, setGameResults] = useState();
   const [players, setPlayers] = useState();
   const [rateDecimalPoints, setRateDecimalPoints] = useState();
   const [tokenSymbol, setTokenSymbol] = useState();
@@ -136,6 +137,7 @@ function App() {
     try {
       setApproveWalletLoading(true);
       await approve(tokenContract, gameContract, amount);
+      await connect(gameContract);
       await getCurrentGame(gameContract);
     } catch (error) {
       console.error(error);
@@ -149,6 +151,7 @@ function App() {
     try {
       setApproveInfuraLoading(true);
       await approve(tokenContract, gameContract, amount, signer);
+      await connect(gameContract, signer);
       await getCurrentGame(gameContract, signer);
     } catch (error) {
       console.error(error);
@@ -373,6 +376,7 @@ function App() {
     const currentGameId = await contract.currentGameId();
     const game = await contract.games(currentGameId);
     const gameWinRates = await contract.getWinningRates(currentGameId);
+    const gameResults = await contract.gameResults(currentGameId);
     const playerAddresses = await contract.getPlayers(currentGameId);
     const rateDecimalPoints = await contract.rateDecimalPoints();
     const players = [];
@@ -396,6 +400,7 @@ function App() {
         ethers.formatUnits(gameWinRate, rateDecimalPoints)
       )
     );
+    setGameResults(gameResults);
     setPlayers(players);
     setRateDecimalPoints(Number(rateDecimalPoints));
   };
@@ -598,7 +603,7 @@ function App() {
                 </CardContent>
               </Card>
 
-              {game && gameWinRates && (
+              {game && gameWinRates && gameResults && (
                 <Card hidden={!isOwner}>
                   <CardHeader title="Game Info"></CardHeader>
                   <CardContent>
@@ -664,14 +669,21 @@ function App() {
                             key: "resultRate",
                             label: "Result Rate",
                             children: `${ethers.formatUnits(
-                              game.resultRate,
+                              gameResults.resultRate,
                               rateDecimalPoints
                             )}`,
                           },
                           {
-                            key: "numberOfGueses",
-                            label: "Number Of Gueses",
-                            children: `${Number(game.numberOfGueses)}`,
+                            key: "rewardPerWinningGuess",
+                            label: "Reward Per Winning Guess",
+                            children: `${ethers.formatUnits(
+                              gameResults.rewardPerWinningGuess
+                            )} ${tokenSymbol}`,
+                          },
+                          {
+                            key: "numberOfGuesses",
+                            label: "Number Of Guesses",
+                            children: `${Number(game.numberOfGuesses)}`,
                           },
                           {
                             key: "gameWinRates",
